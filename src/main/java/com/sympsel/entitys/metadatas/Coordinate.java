@@ -1,9 +1,14 @@
 package com.sympsel.entitys.metadatas;
 
+import jakarta.persistence.Embeddable;
+import lombok.Data;
+
+@Data
+@Embeddable
 public class Coordinate {
-    public int x;
-    public int y;
-    public int z;
+    private int x;
+    private int y;
+    private int z;
     /**
      * @brief 维度
      *
@@ -11,5 +16,5 @@ public class Coordinate {
      * 0: 主世界
      * 1: 末地
      */
-    public int level;
+    private int level;
 }
