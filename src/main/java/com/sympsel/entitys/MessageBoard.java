@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @Data
@@ -32,5 +33,5 @@ public class MessageBoard {
     @ElementCollection
     @CollectionTable(name = "message_board_replies", joinColumns = @JoinColumn(name = "message_board_uuid"))
     @Column(name = "reply_comment_uuid", length = 36)
-    private Set<String> replyCommentUuids;
+    private Set<String> replyCommentUuids = new HashSet<>();
 }

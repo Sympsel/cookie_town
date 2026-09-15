@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -28,7 +30,7 @@ public class Landmark {
     @ElementCollection
     @CollectionTable(name = "landmark_children", joinColumns = @JoinColumn(name = "landmark_uuid"))
     @Column(name = "child_uuid", length = 36)
-    private Set<String> childUuids;
+    private Set<String> childUuids = new HashSet<>();
 
     @Column(nullable = false)
     private String name;
@@ -36,19 +38,19 @@ public class Landmark {
     @ElementCollection
     @CollectionTable(name = "landmark_builders", joinColumns = @JoinColumn(name = "landmark_uuid"))
     @Column(name = "builder_uuid", length = 36)
-    private Set<String> builderUuids;
+    private Set<String> builderUuids = new HashSet<>();
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
     @ElementCollection
     @CollectionTable(name = "landmark_coordinates", joinColumns = @JoinColumn(name = "landmark_uuid"))
-    private List<Coordinate> coordinates;
+    private List<Coordinate> coordinates = new ArrayList<>();
 
     @ElementCollection
     @CollectionTable(name = "landmark_pictures", joinColumns = @JoinColumn(name = "landmark_uuid"))
     @Column(name = "picture_url")
-    private List<String> pictures;
+    private List<String> pictures = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)

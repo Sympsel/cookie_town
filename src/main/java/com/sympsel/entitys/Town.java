@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @Data
@@ -33,12 +34,12 @@ public class Town {
     @ElementCollection
     @CollectionTable(name = "town_members", joinColumns = @JoinColumn(name = "town_uuid"))
     @Column(name = "member_uuid", length = 36)
-    private Set<String> memberUuids;
+    private Set<String> memberUuids = new HashSet<>();
 
     @ElementCollection
     @CollectionTable(name = "town_children", joinColumns = @JoinColumn(name = "town_uuid"))
     @Column(name = "child_town_uuid", length = 36)
-    private Set<String> childTownUuids;
+    private Set<String> childTownUuids = new HashSet<>();
 
     private double score;
 }
