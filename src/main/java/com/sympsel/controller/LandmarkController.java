@@ -70,14 +70,56 @@ public class LandmarkController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{uuid}/builders/{userUuid}")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> addBuilder(@PathVariable String uuid, @PathVariable String userUuid) {
+        Landmark landmark = landmarkService.addBuilder(uuid, userUuid);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+    }
+
+    @DeleteMapping("/{uuid}/builders/{userUuid}")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> removeBuilder(@PathVariable String uuid, @PathVariable String userUuid) {
+        Landmark landmark = landmarkService.removeBuilder(uuid, userUuid);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+    }
+
     @GetMapping("/{uuid}/builders")
     public List<UserResponse> builders(@PathVariable String uuid) {
         return landmarkService.findBuilders(uuid).stream().map(UserResponse::from).toList();
     }
 
+    @PostMapping("/{uuid}/coordinates")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> addCoordinate(@PathVariable String uuid, @RequestBody Coordinate coordinate) {
+        Landmark landmark = landmarkService.addCoordinate(uuid, coordinate);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+    }
+
+    @DeleteMapping("/{uuid}/coordinates")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> removeCoordinate(@PathVariable String uuid, @RequestBody Coordinate coordinate) {
+        Landmark landmark = landmarkService.removeCoordinate(uuid, coordinate);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+    }
+
     @GetMapping("/{uuid}/coordinates")
     public List<Coordinate> coordinates(@PathVariable String uuid) {
         return landmarkService.findCoordinates(uuid);
+    }
+
+    @PostMapping("/{uuid}/pictures")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> addPicture(@PathVariable String uuid, @RequestParam String url) {
+        Landmark landmark = landmarkService.addPicture(uuid, url);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+    }
+
+    @DeleteMapping("/{uuid}/pictures")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> removePicture(@PathVariable String uuid, @RequestParam String url) {
+        Landmark landmark = landmarkService.removePicture(uuid, url);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
     }
 
     @GetMapping("/{uuid}/pictures")

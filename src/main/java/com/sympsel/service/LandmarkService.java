@@ -122,6 +122,33 @@ public class LandmarkService {
     }
 
     @Transactional
+    public Landmark removeBuilder(String uuid, String builderUuid) {
+        Landmark landmark = landmarkRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
+        landmark.getBuilderUuids().remove(builderUuid);
+        landmark.setUpdateTime(System.currentTimeMillis());
+        return landmarkRepository.save(landmark);
+    }
+
+    @Transactional
+    public Landmark removeCoordinate(String uuid, Coordinate coordinate) {
+        Landmark landmark = landmarkRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
+        landmark.getCoordinates().remove(coordinate);
+        landmark.setUpdateTime(System.currentTimeMillis());
+        return landmarkRepository.save(landmark);
+    }
+
+    @Transactional
+    public Landmark removePicture(String uuid, String pictureUrl) {
+        Landmark landmark = landmarkRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
+        landmark.getPictures().remove(pictureUrl);
+        landmark.setUpdateTime(System.currentTimeMillis());
+        return landmarkRepository.save(landmark);
+    }
+
+    @Transactional
     public Landmark update(String uuid, String name, LandmarkType type, String description) {
         Landmark landmark = landmarkRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
