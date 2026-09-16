@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @EqualsAndHashCode(of = "uuid")
@@ -32,6 +32,7 @@ public class MessageBoard {
 
     @ElementCollection
     @CollectionTable(name = "message_board_replies", joinColumns = @JoinColumn(name = "message_board_uuid"))
+    @OrderColumn(name = "reply_order")
     @Column(name = "reply_comment_uuid", length = 36)
-    private Set<String> replyCommentUuids = new HashSet<>();
+    private List<String> replyCommentUuids = new ArrayList<>();
 }

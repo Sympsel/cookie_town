@@ -3,6 +3,7 @@ package com.sympsel.controller;
 import com.sympsel.dto.MessageBoardRequest;
 import com.sympsel.dto.MessageBoardResponse;
 import com.sympsel.entitys.MessageBoard;
+import com.sympsel.security.UserContext;
 import com.sympsel.service.MessageBoardService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class MessageBoardController {
 
     @PostMapping
     public ResponseEntity<MessageBoardResponse> create(@RequestBody MessageBoardRequest request) {
-        MessageBoard messageBoard = messageBoardService.create(request.publisherUuid(), request.content(), request.score());
+        MessageBoard messageBoard = messageBoardService.create(UserContext.currentUuid(), request.content(), request.score());
         return ResponseEntity.status(HttpStatus.CREATED).body(MessageBoardResponse.from(messageBoard));
     }
 
@@ -35,5 +36,22 @@ public class MessageBoardController {
         return messageBoardService.findByUuid(uuid)
                 .map(messageBoard -> ResponseEntity.ok(MessageBoardResponse.from(messageBoard)))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{uuid}")
+    public ResponseEntity<MessageBoardResponse> update(@PathVariable String uuid, @RequestBody MessageBoardRequest request) {
+        MessageBoard messageBoard = messageBoardService.update(uuid, request.content(), request.score());
+        return ResponseEntity.ok(MessageBoardResponse.from(messageBoard));
+    }
+
+    @DeleteMapping("/{uuid}")
+    public ResponseEntity<Void> delete(@PathVariable String uuid) {
+        messageBoardService.delete(uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{uuid}/replies")
+    public List<String> replies(@PathVariable String uuid) {
+        return messageBoardService.findReplyCommentUuids(uuid);
     }
 }

@@ -2,6 +2,7 @@ package com.sympsel.controller;
 
 import com.sympsel.dto.RegisterRequest;
 import com.sympsel.dto.UserResponse;
+import com.sympsel.dto.UserUpdateRequest;
 import com.sympsel.entitys.User;
 import com.sympsel.service.UserService;
 import org.springframework.http.HttpStatus;
@@ -35,5 +36,22 @@ public class UserController {
         return userService.findByUuid(uuid)
                 .map(user -> ResponseEntity.ok(UserResponse.from(user)))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{uuid}")
+    public ResponseEntity<UserResponse> update(@PathVariable String uuid, @RequestBody UserUpdateRequest request) {
+        User user = userService.update(uuid, request.name(), request.introduction());
+        return ResponseEntity.ok(UserResponse.from(user));
+    }
+
+    @DeleteMapping("/{uuid}")
+    public ResponseEntity<Void> delete(@PathVariable String uuid) {
+        userService.delete(uuid);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{uuid}/tags")
+    public List<String> tags(@PathVariable String uuid) {
+        return userService.findTags(uuid);
     }
 }

@@ -61,4 +61,12 @@ public class NoticeService {
         notice.setUpdateTime(System.currentTimeMillis());
         return noticeRepository.save(notice);
     }
+
+    @Transactional
+    public void delete(String uuid) {
+        if (!noticeRepository.existsById(uuid)) {
+            throw new IllegalArgumentException("公告不存在: " + uuid);
+        }
+        noticeRepository.deleteById(uuid);
+    }
 }

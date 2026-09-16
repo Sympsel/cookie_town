@@ -1,4 +1,4 @@
 package com.sympsel.dto;
 
-public record NoticeRequest(String publisherUuid, String title, String content) {
+public record NoticeRequest(String title, String content) {
 }

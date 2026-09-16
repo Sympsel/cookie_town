@@ -1,20 +1,28 @@
 package com.sympsel.service;
 
 import com.sympsel.entitys.Town;
+import com.sympsel.entitys.User;
 import com.sympsel.repository.TownRepository;
+import com.sympsel.repository.UserRepository;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class TownService {
     private final TownRepository townRepository;
+    private final UserRepository userRepository;
 
-    public TownService(TownRepository townRepository) {
+    public TownService(TownRepository townRepository, UserRepository userRepository) {
         this.townRepository = townRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -68,10 +76,15 @@ public class TownService {
 
     @Transactional
     public Town addMember(String townUuid, String userUuid) {
+        if (!UuidUtil.isValid(userUuid)) {
+            throw new IllegalArgumentException("非法的用户 uuid: " + userUuid);
+        }
         Town town = townRepository.findById(townUuid)
                 .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + townUuid));
-        town.getMemberUuids().add(userUuid);
-        town.setUpdateTime(System.currentTimeMillis());
+        if (!town.getMemberUuids().contains(userUuid)) {
+            town.getMemberUuids().add(userUuid);
+            town.setUpdateTime(System.currentTimeMillis());
+        }
         return townRepository.save(town);
     }
 
@@ -82,5 +95,50 @@ public class TownService {
         town.getMemberUuids().remove(userUuid);
         town.setUpdateTime(System.currentTimeMillis());
         return townRepository.save(town);
+}
+
+    @Transactional
+    public Town update(String uuid, String name, String description) {
+        Town town = townRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        if (name != null && !name.isBlank()) {
+            town.setName(name);
+        }
+        if (description != null) {
+            town.setDescription(description);
+        }
+        town.setUpdateTime(System.currentTimeMillis());
+        return townRepository.save(town);
+    }
+
+    @Transactional
+    public void delete(String uuid) {
+        Town town = townRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        if (town.getParentTownUuid() != null) {
+            townRepository.findById(town.getParentTownUuid()).ifPresent(parent -> {
+                parent.getChildTownUuids().remove(uuid);
+                parent.setUpdateTime(System.currentTimeMillis());
+                townRepository.save(parent);
+            });
+        }
+        townRepository.delete(town);
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> findMembers(String uuid) {
+        Town town = townRepository.findById(uuid).orElseThrow(
+                () -> new IllegalArgumentException("小镇不存在: " + uuid)
+        );
+        List<String> memberUuids = List.copyOf(town.getMemberUuids());
+        if (memberUuids.isEmpty()) {
+            return List.of();
+        }
+        Map<String, User> userMap = userRepository.findAllByUuidIn(memberUuids).stream()
+                .collect(Collectors.toMap(User::getUuid, Function.identity()));
+        return memberUuids.stream()
+                .map(userMap::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 }

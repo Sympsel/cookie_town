@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @Embeddable
-public class Coordinate {
+public class Coordinate implements Comparable<Coordinate> {
     private int x;
     private int y;
     private int z;
@@ -17,4 +17,9 @@ public class Coordinate {
      * 1: 末地
      */
     private int level;
+
+    @Override
+    public int compareTo(Coordinate o) {
+        return this.level - o.level;
+    }
 }

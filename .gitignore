@@ -39,3 +39,7 @@ build/
 .DS_Store
 
 uploads/
+
+run-env/
+
+doc/

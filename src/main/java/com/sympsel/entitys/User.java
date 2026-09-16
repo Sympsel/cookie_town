@@ -6,7 +6,9 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -35,7 +37,8 @@ public class User {
     @ElementCollection
     @CollectionTable(name = "user_tags", joinColumns = @JoinColumn(name = "user_uuid"))
     @Column(name = "tag")
-    private Set<String> tags = new HashSet<>();
+    @OrderColumn(name = "tag_order")
+    private List<String> tags = new ArrayList<>();
 
     @Column(columnDefinition = "TEXT")
     private String introduction;

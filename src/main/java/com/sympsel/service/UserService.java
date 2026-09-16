@@ -60,4 +60,39 @@ public class UserService {
     public boolean verifyPassword(String rawPassword, User user) {
         return passwordEncoder.matches(rawPassword, user.getPassword());
     }
+
+    @Transactional
+    public User update(String uuid, String name, String introduction) {
+        User user = userRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + uuid));
+        if (name != null && !name.isBlank()) {
+            if (name.length() < 3 || name.length() > 16) {
+                throw new IllegalArgumentException("用户名长度需为 3-16 位");
+            }
+            if (!name.equals(user.getName()) && userRepository.existsByName(name)) {
+                throw new IllegalArgumentException("用户名已存在: " + name);
+            }
+            user.setName(name);
+        }
+        if (introduction != null) {
+            user.setIntroduction(introduction);
+        }
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public void delete(String uuid) {
+        if (!userRepository.existsById(uuid)) {
+            throw new IllegalArgumentException("用户不存在: " + uuid);
+        }
+        userRepository.deleteById(uuid);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> findTags(String uuid) {
+        User user = userRepository.findById(uuid).orElseThrow(
+                () -> new IllegalArgumentException("用户不存在: " + uuid)
+        );
+        return List.copyOf(user.getTags());
+    }
 }

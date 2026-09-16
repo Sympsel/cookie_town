@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -32,14 +34,16 @@ public class Town {
     private long updateTime;
 
     @ElementCollection
+    @OrderColumn(name = "member_order")
     @CollectionTable(name = "town_members", joinColumns = @JoinColumn(name = "town_uuid"))
     @Column(name = "member_uuid", length = 36)
-    private Set<String> memberUuids = new HashSet<>();
+    private List<String> memberUuids = new ArrayList<>();
 
     @ElementCollection
+    @OrderColumn(name = "child_order")
     @CollectionTable(name = "town_children", joinColumns = @JoinColumn(name = "town_uuid"))
     @Column(name = "child_town_uuid", length = 36)
-    private Set<String> childTownUuids = new HashSet<>();
+    private List<String> childTownUuids = new ArrayList<>();
 
     private double score;
 }

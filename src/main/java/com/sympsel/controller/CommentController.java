@@ -3,6 +3,7 @@ package com.sympsel.controller;
 import com.sympsel.dto.CommentRequest;
 import com.sympsel.dto.CommentResponse;
 import com.sympsel.entitys.Comment;
+import com.sympsel.security.UserContext;
 import com.sympsel.service.CommentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class CommentController {
 
     @PostMapping
     public ResponseEntity<CommentResponse> create(@RequestBody CommentRequest request) {
-        Comment comment = commentService.create(request.publisherUuid(), request.content(), request.parentUuid());
+        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), request.parentUuid());
         return ResponseEntity.status(HttpStatus.CREATED).body(CommentResponse.from(comment));
     }
 
@@ -40,5 +41,17 @@ public class CommentController {
     @GetMapping("/{uuid}/replies")
     public List<CommentResponse> replies(@PathVariable String uuid) {
         return commentService.findReplies(uuid).stream().map(CommentResponse::from).toList();
+    }
+
+    @PutMapping("/{uuid}")
+    public ResponseEntity<CommentResponse> update(@PathVariable String uuid, @RequestBody CommentRequest request) {
+        Comment comment = commentService.update(uuid, request.content());
+        return ResponseEntity.ok(CommentResponse.from(comment));
+    }
+
+    @DeleteMapping("/{uuid}")
+    public ResponseEntity<Void> delete(@PathVariable String uuid) {
+        commentService.delete(uuid);
+        return ResponseEntity.noContent().build();
     }
 }

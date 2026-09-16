@@ -53,8 +53,40 @@ public class MessageBoardService {
     public MessageBoard addReplyComment(String uuid, String commentUuid) {
         MessageBoard messageBoard = messageBoardRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("留言不存在: " + uuid));
-        messageBoard.getReplyCommentUuids().add(commentUuid);
+        if (!messageBoard.getReplyCommentUuids().contains(commentUuid)) {
+            messageBoard.getReplyCommentUuids().add(commentUuid);
+            messageBoard.setUpdateTime(System.currentTimeMillis());
+        }
+        return messageBoardRepository.save(messageBoard);
+    }
+
+    @Transactional
+    public MessageBoard update(String uuid, String content, Score score) {
+        MessageBoard messageBoard = messageBoardRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("留言不存在: " + uuid));
+        if (content != null && !content.isBlank()) {
+            messageBoard.setContent(content);
+        }
+        if (score != null) {
+            messageBoard.setScore(score);
+        }
         messageBoard.setUpdateTime(System.currentTimeMillis());
         return messageBoardRepository.save(messageBoard);
+    }
+
+    @Transactional
+    public void delete(String uuid) {
+        if (!messageBoardRepository.existsById(uuid)) {
+            throw new IllegalArgumentException("留言不存在: " + uuid);
+        }
+        messageBoardRepository.deleteById(uuid);
+    }
+
+    @Transactional(readOnly = true)
+    public  List<String> findReplyCommentUuids(String uuid) {
+        MessageBoard messageBoard = messageBoardRepository.findById(uuid).orElseThrow(
+                () -> new IllegalArgumentException("留言不存在: " + uuid)
+        );
+        return List.copyOf(messageBoard.getReplyCommentUuids());
     }
 }

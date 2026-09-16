@@ -61,4 +61,30 @@ public class CommentService {
     public List<Comment> findReplies(String parentUuid) {
         return commentRepository.findByParentUuid(parentUuid);
     }
+
+    @Transactional
+    public Comment update(String uuid, String content) {
+        Comment comment = commentRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("评论不存在: " + uuid));
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("评论内容不能为空");
+        }
+        comment.setContent(content);
+        comment.setUpdateTime(System.currentTimeMillis());
+        return commentRepository.save(comment);
+    }
+
+    @Transactional
+    public void delete(String uuid) {
+        Comment comment = commentRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("评论不存在: " + uuid));
+        if (comment.getParentUuid() != null) {
+            commentRepository.findById(comment.getParentUuid()).ifPresent(parent -> {
+                parent.getReplyUuids().remove(uuid);
+                parent.setUpdateTime(System.currentTimeMillis());
+                commentRepository.save(parent);
+            });
+        }
+        commentRepository.delete(comment);
+    }
 }

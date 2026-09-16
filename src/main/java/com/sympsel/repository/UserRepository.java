@@ -13,4 +13,6 @@ public interface UserRepository extends JpaRepository<User, String> {
     boolean existsByName(String name);
 
     List<User> findByPermission(Permission permission);
+
+    List<User> findAllByUuidIn(List<String> uuids);
 }
