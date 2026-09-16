@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>曲奇小镇 · 地标</title>
+    <!-- 后续接入样式：<link rel="stylesheet" href="css/style.css"> -->
+</head>
+<body>
+<header class="site-header">
+    <h1 class="site-title"><a href="index.html">曲奇小镇</a></h1>
+    <nav class="auth-nav">
+        <span id="session-status" class="session-status">未登录</span>
+        <a href="index.html">返回首页</a>
+    </nav>
+</header>
+
+<main>
+    <section class="list-section">
+        <h2>地标列表</h2>
+        <!-- 列表占位：后续由 JS 调用 GET /api/landmarks 渲染成磁贴 -->
+        <div class="tile-grid" id="landmark-list" data-endpoint="/api/landmarks">
+            <p class="empty-hint">列表将在接入 JS 后加载。</p>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <h2>提交地标</h2>
+        <!--
+          磁贴式表单：POST /api/landmarks，需 Common+ 角色。
+          地标为社区共建模式：任何普通用户可修改内容/状态、增删建造者/坐标/图片；
+          仅删除整个地标限提交者（属主）或管理员。
+        -->
+        <form class="tile-form" id="landmark-create-form" action="#" method="post"
+              data-endpoint="/api/landmarks" data-method="POST">
+            <div class="tile-field">
+                <label for="landmark-name">地标名</label>
+                <input id="landmark-name" name="name" type="text" required>
+            </div>
+            <div class="tile-field">
+                <label for="landmark-type">类型</label>
+                <select id="landmark-type" name="type" required>
+                    <option value="Building">普通建筑</option>
+                    <option value="Home">家</option>
+                    <option value="ResourceCreate">资源刷取点</option>
+                    <option value="ViewPoint">观光点</option>
+                </select>
+            </div>
+            <div class="tile-field">
+                <label for="landmark-description">简介</label>
+                <textarea id="landmark-description" name="description" rows="3"></textarea>
+            </div>
+            <div class="tile-actions">
+                <button class="tile-action" type="submit">提交</button>
+            </div>
+            <p id="landmark-message" class="form-message" role="status"></p>
+        </form>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <p>曲奇小镇 · Minecraft 社区网站</p>
+</footer>
+<script src="js/app.js"></script>
+</body>
+</html>

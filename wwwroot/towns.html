@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>曲奇小镇 · 小镇</title>
+    <!-- 后续接入样式：<link rel="stylesheet" href="css/style.css"> -->
+</head>
+<body>
+<header class="site-header">
+    <h1 class="site-title"><a href="index.html">曲奇小镇</a></h1>
+    <nav class="auth-nav">
+        <span id="session-status" class="session-status">未登录</span>
+        <a href="index.html">返回首页</a>
+    </nav>
+</header>
+
+<main>
+    <section class="list-section">
+        <h2>小镇列表</h2>
+        <!-- 列表占位：后续由 JS 调用 GET /api/towns 渲染成磁贴 -->
+        <div class="tile-grid" id="town-list" data-endpoint="/api/towns">
+            <p class="empty-hint">列表将在接入 JS 后加载。</p>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <h2>创建小镇</h2>
+        <!--
+          磁贴式表单：POST /api/towns，需 Common+ 角色。
+          小镇为私有管理模式：创建后仅镇长（属主）或管理员可改/删/管成员。
+        -->
+        <form class="tile-form" id="town-create-form" action="#" method="post"
+              data-endpoint="/api/towns" data-method="POST">
+            <div class="tile-field">
+                <label for="town-name">小镇名称</label>
+                <input id="town-name" name="name" type="text" required>
+            </div>
+            <div class="tile-field">
+                <label for="town-description">简介</label>
+                <textarea id="town-description" name="description" rows="3"></textarea>
+            </div>
+            <div class="tile-field">
+                <label for="town-parent">父城镇 UUID（可选）</label>
+                <input id="town-parent" name="parentTownUuid" type="text" placeholder="留空表示顶级小镇">
+            </div>
+            <div class="tile-actions">
+                <button class="tile-action" type="submit">创建</button>
+            </div>
+            <p id="town-message" class="form-message" role="status"></p>
+        </form>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <p>曲奇小镇 · Minecraft 社区网站</p>
+</footer>
+<script src="js/app.js"></script>
+</body>
+</html>
