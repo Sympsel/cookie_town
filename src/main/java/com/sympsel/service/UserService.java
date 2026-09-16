@@ -3,6 +3,7 @@ package com.sympsel.service;
 import com.sympsel.entitys.User;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.repository.UserRepository;
+import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,7 @@ public class UserService {
     public User register(String name, String rawPassword) {
         if (name == null || name.length() < 3 || name.length() > 16) {
             throw new IllegalArgumentException("用户名长度需为 3-16 位");
-    }
+        }
         if (rawPassword == null || rawPassword.length() < 6 || rawPassword.length() > 18) {
             throw new IllegalArgumentException("密码长度需为 6-18 位");
         }
@@ -65,6 +66,7 @@ public class UserService {
     public User update(String uuid, String name, String introduction) {
         User user = userRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(uuid);
         if (name != null && !name.isBlank()) {
             if (name.length() < 3 || name.length() > 16) {
                 throw new IllegalArgumentException("用户名长度需为 3-16 位");
@@ -94,5 +96,17 @@ public class UserService {
                 () -> new IllegalArgumentException("用户不存在: " + uuid)
         );
         return List.copyOf(user.getTags());
+    }
+
+    @Transactional
+    public User updatePermission(String uuid, Permission permission) {
+        if (permission == null) {
+            throw new IllegalArgumentException("权限不能为空");
+        }
+        User user = userRepository.findById(uuid).orElseThrow(
+                () -> new IllegalArgumentException("用户不存在: " + uuid)
+        );
+        user.setPermission(permission);
+        return userRepository.save(user);
     }
 }

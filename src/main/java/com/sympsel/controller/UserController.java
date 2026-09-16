@@ -4,6 +4,8 @@ import com.sympsel.dto.RegisterRequest;
 import com.sympsel.dto.UserResponse;
 import com.sympsel.dto.UserUpdateRequest;
 import com.sympsel.entitys.User;
+import com.sympsel.entitys.enums.Permission;
+import com.sympsel.security.RequirePermission;
 import com.sympsel.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,15 +41,24 @@ public class UserController {
     }
 
     @PutMapping("/{uuid}")
+    @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<UserResponse> update(@PathVariable String uuid, @RequestBody UserUpdateRequest request) {
         User user = userService.update(uuid, request.name(), request.introduction());
         return ResponseEntity.ok(UserResponse.from(user));
     }
 
     @DeleteMapping("/{uuid}")
+    @RequirePermission({Permission.Admin})
     public ResponseEntity<Void> delete(@PathVariable String uuid) {
         userService.delete(uuid);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{uuid}/permission")
+    @RequirePermission({Permission.Admin})
+    public ResponseEntity<UserResponse> updatePermission(@PathVariable String uuid, @RequestParam Permission permission) {
+        User user = userService.updatePermission(uuid, permission);
+        return ResponseEntity.ok(UserResponse.from(user));
     }
 
     @GetMapping("/{uuid}/tags")

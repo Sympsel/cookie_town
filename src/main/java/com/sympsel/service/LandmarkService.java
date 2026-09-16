@@ -7,6 +7,7 @@ import com.sympsel.entitys.enums.LandmarkType;
 import com.sympsel.entitys.metadatas.Coordinate;
 import com.sympsel.repository.LandmarkRepository;
 import com.sympsel.repository.UserRepository;
+import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -141,6 +142,7 @@ public class LandmarkService {
     public void delete(String uuid) {
         Landmark landmark = landmarkRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(landmark.getSubmitterUuid());
         if (landmark.getParentUuid() != null) {
             landmarkRepository.findById(landmark.getParentUuid()).ifPresent(parent -> {
                 parent.getChildUuids().remove(uuid);

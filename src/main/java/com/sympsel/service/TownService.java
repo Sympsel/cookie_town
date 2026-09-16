@@ -4,6 +4,7 @@ import com.sympsel.entitys.Town;
 import com.sympsel.entitys.User;
 import com.sympsel.repository.TownRepository;
 import com.sympsel.repository.UserRepository;
+import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -81,6 +82,7 @@ public class TownService {
         }
         Town town = townRepository.findById(townUuid)
                 .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + townUuid));
+        PermissionGuard.requireOwnerOrAdmin(town.getOwnerUuid());
         if (!town.getMemberUuids().contains(userUuid)) {
             town.getMemberUuids().add(userUuid);
             town.setUpdateTime(System.currentTimeMillis());
@@ -92,6 +94,7 @@ public class TownService {
     public Town removeMember(String townUuid, String userUuid) {
         Town town = townRepository.findById(townUuid)
                 .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + townUuid));
+        PermissionGuard.requireOwnerOrAdmin(town.getOwnerUuid());
         town.getMemberUuids().remove(userUuid);
         town.setUpdateTime(System.currentTimeMillis());
         return townRepository.save(town);
@@ -101,6 +104,7 @@ public class TownService {
     public Town update(String uuid, String name, String description) {
         Town town = townRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(town.getOwnerUuid());
         if (name != null && !name.isBlank()) {
             town.setName(name);
         }
@@ -115,6 +119,7 @@ public class TownService {
     public void delete(String uuid) {
         Town town = townRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(town.getOwnerUuid());
         if (town.getParentTownUuid() != null) {
             townRepository.findById(town.getParentTownUuid()).ifPresent(parent -> {
                 parent.getChildTownUuids().remove(uuid);

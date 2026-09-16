@@ -3,6 +3,8 @@ package com.sympsel.controller;
 import com.sympsel.dto.CommentRequest;
 import com.sympsel.dto.CommentResponse;
 import com.sympsel.entitys.Comment;
+import com.sympsel.entitys.enums.Permission;
+import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.CommentService;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ public class CommentController {
     }
 
     @PostMapping
+    @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<CommentResponse> create(@RequestBody CommentRequest request) {
         Comment comment = commentService.create(UserContext.currentUuid(), request.content(), request.parentUuid());
         return ResponseEntity.status(HttpStatus.CREATED).body(CommentResponse.from(comment));
@@ -44,12 +47,14 @@ public class CommentController {
     }
 
     @PutMapping("/{uuid}")
+    @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<CommentResponse> update(@PathVariable String uuid, @RequestBody CommentRequest request) {
         Comment comment = commentService.update(uuid, request.content());
         return ResponseEntity.ok(CommentResponse.from(comment));
     }
 
     @DeleteMapping("/{uuid}")
+    @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<Void> delete(@PathVariable String uuid) {
         commentService.delete(uuid);
         return ResponseEntity.noContent().build();

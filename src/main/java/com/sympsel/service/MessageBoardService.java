@@ -3,6 +3,7 @@ package com.sympsel.service;
 import com.sympsel.entitys.MessageBoard;
 import com.sympsel.entitys.enums.Score;
 import com.sympsel.repository.MessageBoardRepository;
+import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +65,7 @@ public class MessageBoardService {
     public MessageBoard update(String uuid, String content, Score score) {
         MessageBoard messageBoard = messageBoardRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("留言不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(messageBoard.getPublisherUuid());
         if (content != null && !content.isBlank()) {
             messageBoard.setContent(content);
         }
@@ -76,9 +78,12 @@ public class MessageBoardService {
 
     @Transactional
     public void delete(String uuid) {
+        MessageBoard messageBoard = messageBoardRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("留言不存在: " + uuid));
         if (!messageBoardRepository.existsById(uuid)) {
             throw new IllegalArgumentException("留言不存在: " + uuid);
         }
+        PermissionGuard.requireOwnerOrAdmin(messageBoard.getPublisherUuid());
         messageBoardRepository.deleteById(uuid);
     }
 

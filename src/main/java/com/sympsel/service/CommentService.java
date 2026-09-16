@@ -2,6 +2,7 @@ package com.sympsel.service;
 
 import com.sympsel.entitys.Comment;
 import com.sympsel.repository.CommentRepository;
+import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,7 @@ public class CommentService {
     public Comment update(String uuid, String content) {
         Comment comment = commentRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("评论不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(comment.getPublisherUuid());
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("评论内容不能为空");
         }
@@ -78,6 +80,7 @@ public class CommentService {
     public void delete(String uuid) {
         Comment comment = commentRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("评论不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(comment.getPublisherUuid());
         if (comment.getParentUuid() != null) {
             commentRepository.findById(comment.getParentUuid()).ifPresent(parent -> {
                 parent.getReplyUuids().remove(uuid);

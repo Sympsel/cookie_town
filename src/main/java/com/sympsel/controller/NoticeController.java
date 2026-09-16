@@ -3,6 +3,8 @@ package com.sympsel.controller;
 import com.sympsel.dto.NoticeRequest;
 import com.sympsel.dto.NoticeResponse;
 import com.sympsel.entitys.Notice;
+import com.sympsel.entitys.enums.Permission;
+import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.NoticeService;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ public class NoticeController {
     }
 
     @PostMapping
+    @RequirePermission(Permission.Admin)
     public ResponseEntity<NoticeResponse> publish(@RequestBody NoticeRequest request) {
         Notice notice = noticeService.publish(UserContext.currentUuid(), request.title(), request.content());
         return ResponseEntity.status(HttpStatus.CREATED).body(NoticeResponse.from(notice));
@@ -39,12 +42,14 @@ public class NoticeController {
     }
 
     @PutMapping("/{uuid}")
+    @RequirePermission(Permission.Admin)
     public ResponseEntity<NoticeResponse> update(@PathVariable String uuid, @RequestBody NoticeRequest request) {
         Notice notice = noticeService.update(uuid, request.title(), request.content());
         return ResponseEntity.ok(NoticeResponse.from(notice));
     }
 
     @DeleteMapping("/{uuid}")
+    @RequirePermission(Permission.Admin)
     public ResponseEntity<Void> delete(@PathVariable String uuid) {
         noticeService.delete(uuid);
         return ResponseEntity.noContent().build();

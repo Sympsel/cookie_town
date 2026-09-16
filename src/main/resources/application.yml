@@ -23,3 +23,7 @@ spring:
 jwt:
   secret: ${JWT_SECRET:}
   expiration: 86400000  # token 有效期，单位毫秒（默认 24 小时）
+
+app:
+  bootstrap-admin:
+    username: ${ADMIN_USERNAME}
