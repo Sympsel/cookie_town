@@ -35,7 +35,7 @@ public class NoticeController {
     @GetMapping
     public PageResponse<NoticeResponse> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "publishTime");
         return PageResponse.from(noticeService.findAll(pageable), NoticeResponse::from);
     }

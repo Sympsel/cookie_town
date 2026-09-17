@@ -15,29 +15,24 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    // 特权标签白名单：拥有其中任一标签的用户视为开发者，可修复其它玩家账户信息
-    private final Set<String> privilegedTags;
+    // 开发者标签名：拥有该标签的用户视为开发者，可修复其它玩家账户信息
+    // （标签由 config.json 的 developers 名单在启动时同步，见 JsonConfigBootstrap）
+    private final String developerTag;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       @Value("${app.privileged-tags:}") String privilegedTagsRaw) {
+                       @Value("${app.developer-tag:开发者}") String developerTag) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.privilegedTags = Arrays.stream(privilegedTagsRaw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
+        this.developerTag = developerTag;
     }
 
     /**
@@ -45,11 +40,11 @@ public class UserService {
      * 调用方必须处于事务内（tags 为懒加载集合）。
      */
     private boolean isDeveloper(String uuid) {
-        if (privilegedTags.isEmpty()) {
+        if (developerTag == null || developerTag.isBlank()) {
             return false;
         }
         return userRepository.findById(uuid)
-                .map(user -> user.getTags().stream().anyMatch(privilegedTags::contains))
+                .map(user -> user.getTags().contains(developerTag))
                 .orElse(false);
     }
 
@@ -96,6 +91,14 @@ public class UserService {
     @Transactional(readOnly = true)
     public Optional<User> findByName(String name) {
         return userRepository.findByName(name);
+    }
+
+    /**
+     * 按标签查询用户（供启动引导同步开发者名单使用）。
+     */
+    @Transactional(readOnly = true)
+    public List<User> findByTag(String tag) {
+        return userRepository.findByTag(tag);
     }
 
     @Transactional(readOnly = true)
@@ -243,5 +246,36 @@ public class UserService {
         );
         user.setPermission(permission);
         return userRepository.save(user);
+    }
+
+    /**
+     * 启动引导：确保指定用户名的账号为 Admin。
+     * 账号不存在则用给定用户名 + 密码创建并直接设为 Admin；已存在则仅在非 Admin 时提权（不改密码）。
+     * 取代旧的 app.bootstrap-admin 机制，由 config.json 的 first-admin 驱动，解决冷启动无管理员的死锁。
+     */
+    @Transactional
+    public void ensureAdmin(String username, String rawPassword) {
+        if (username == null || username.length() < 3 || username.length() > 16) {
+            throw new IllegalArgumentException("用户名长度需为 3-16 位");
+        }
+        Optional<User> existing = userRepository.findByName(username);
+        if (existing.isPresent()) {
+            User user = existing.get();
+            if (user.getPermission() != Permission.Admin) {
+                user.setPermission(Permission.Admin);
+                userRepository.save(user);
+            }
+            return;
+        }
+        if (rawPassword == null || rawPassword.length() < 6 || rawPassword.length() > 18) {
+            throw new IllegalArgumentException("密码长度需为 6-18 位");
+        }
+        User user = new User();
+        user.setUuid(UuidUtil.generate());
+        user.setName(username);
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setPermission(Permission.Admin);
+        user.setCreateTime(System.currentTimeMillis());
+        userRepository.save(user);
     }
 }

@@ -1,0 +1,4 @@
+# Spring Boot 4.0 起 EnvironmentPostProcessor 接口由 org.springframework.boot.env 迁至 org.springframework.boot。
+# 该扩展点仍通过 spring.factories 注册（.imports 机制仅用于 AutoConfiguration）。
+org.springframework.boot.EnvironmentPostProcessor=\
+com.sympsel.config.DataSourceEnvironmentPostProcessor

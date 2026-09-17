@@ -43,7 +43,7 @@ public class LandmarkController {
     @GetMapping
     public PageResponse<LandmarkResponse> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
         return PageResponse.from(landmarkService.findAll(pageable), LandmarkResponse::from);
     }

@@ -9,4 +9,6 @@ public interface TownRepository extends JpaRepository<Town, String> {
     List<Town> findByOwnerUuid(String ownerUuid);
 
     List<Town> findByParentTownUuid(String parentTownUuid);
+
+    List<Town> findByParentTownUuidIsNull();
 }

@@ -40,11 +40,23 @@ public class TownController {
     @GetMapping
     public PageResponse<TownResponse> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(required = false) Integer size
     ) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
         return PageResponse.from(townService.findAll(pageable), TownResponse::from);
     }
+
+    /**
+     * 主镇（无父镇的根镇）信息，供主页渲染简介。无主镇时返回 404，前端优雅降级隐藏该区块。
+     * 轮播图另经 GET /api/towns/{uuid}/pictures 获取（TownResponse 不含懒加载集合）。
+     */
+    @GetMapping("/main")
+    public ResponseEntity<TownResponse> main() {
+        return townService.findMain()
+                .map(town -> ResponseEntity.ok(TownResponse.from(town)))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
 
     @GetMapping("/{uuid}")
     public ResponseEntity<TownResponse> getByUuid(@PathVariable String uuid) {

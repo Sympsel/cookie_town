@@ -35,7 +35,7 @@ public class MessageBoardController {
     @GetMapping
     public PageResponse<MessageBoardResponse> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
         return PageResponse.from(messageBoardService.findAll(pageable), MessageBoardResponse::from);
     }

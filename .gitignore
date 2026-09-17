@@ -42,4 +42,7 @@ uploads/
 
 run-env/
 
+# 外部配置（含管理员密码等敏感信息）不入库，仅保留 config.example.json 模板
+config/config.json
+
 doc/

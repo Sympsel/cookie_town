@@ -40,7 +40,7 @@ public class UserController {
     @GetMapping
     public PageResponse<UserResponse> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
         // findAllDto 已在事务内映射为 UserResponse（含 tags），此处 identity 透传
         return PageResponse.from(userService.findAllDto(pageable), Function.identity());

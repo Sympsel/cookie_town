@@ -11,10 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -55,6 +52,69 @@ public class TownService {
             });
         }
         return saved;
+    }
+
+    /**
+     * 主镇 = 无父镇的根镇。若历史数据存在多个根镇，取创建时间最早者作为主镇。
+     */
+    @Transactional(readOnly = true)
+    public Optional<Town> findMain() {
+        return townRepository.findByParentTownUuidIsNull().stream()
+                .min(Comparator.comparingLong(Town::getCreateTime));
+    }
+
+    /**
+     * 幂等创建 / 同步主镇（由 config.json 的 main-town 在启动时驱动）。
+     * <p>镇长用户名解析不到（尚未注册）时建为无主镇（ownerUuid=null）并记 warn；
+     * 待其注册后下次启动会自动回填 ownerUuid 并加入成员。
+     * <p>name/description/pictures 以 config 为准同步（config 为主镇的权威来源）。
+     * 懒加载集合（pictures/memberUuids）均在本事务内访问，规避 OSIV 关闭下的异常。
+     */
+    @Transactional
+    public Town upsertMainTown(String name, String description, String ownerUsername, List<String> pictures) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("主镇名称不能为空");
+        }
+        String ownerUuid = (ownerUsername == null || ownerUsername.isBlank())
+                ? null
+                : userRepository.findByName(ownerUsername.trim()).map(User::getUuid).orElse(null);
+        List<String> pics = (pictures == null) ? List.of() : pictures;
+        long now = System.currentTimeMillis();
+
+        Optional<Town> existing = findMain();
+        if (existing.isEmpty()) {
+            Town town = new Town();
+            town.setUuid(UuidUtil.generate());
+            town.setName(name.trim());
+            town.setDescription(description);
+            town.setParentTownUuid(null);
+            town.setOwnerUuid(ownerUuid);
+            town.setCreateTime(now);
+            town.setUpdateTime(now);
+            if (ownerUuid != null) {
+                town.getMemberUuids().add(ownerUuid);
+            }
+            town.getPictures().addAll(pics);
+            return townRepository.save(town);
+        }
+
+        Town town = existing.get();
+        town.setName(name.trim());
+        if (description != null) {
+            town.setDescription(description);
+        }
+        // 轮播图以 config 为准覆盖同步
+        town.getPictures().clear();
+        town.getPictures().addAll(pics);
+        // 回填镇长：此前无主（或镇长变更）且现在能解析到 uuid
+        if (ownerUuid != null && !ownerUuid.equals(town.getOwnerUuid())) {
+            town.setOwnerUuid(ownerUuid);
+            if (!town.getMemberUuids().contains(ownerUuid)) {
+                town.getMemberUuids().add(ownerUuid);
+            }
+        }
+        town.setUpdateTime(now);
+        return townRepository.save(town);
     }
 
     @Transactional(readOnly = true)

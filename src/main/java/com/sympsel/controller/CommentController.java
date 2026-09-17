@@ -35,7 +35,7 @@ public class CommentController {
     @GetMapping
     public PageResponse<CommentResponse> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
         return PageResponse.from(commentService.findAll(pageable), CommentResponse::from);
     }
