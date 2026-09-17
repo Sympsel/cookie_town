@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
@@ -36,13 +37,21 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 静态资源缺失（如浏览器自动请求的 favicon.ico）应返回 404，
-     * 而非落入下方兜底被当成 500 并打印 ERROR 日志。
+     * 静态资源缺失（如浏览器自动请求的 favicon.ico）应返回 404
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, String>> handleNoResourceFound(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", "资源不存在"));
+    }
+
+    /**
+     * 上传文件超过 multipart 限制应返回 400
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, String>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "上传文件过大，请压缩后重试（单张不超过 5MB）"));
     }
 
     @ExceptionHandler(Exception.class)

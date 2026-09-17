@@ -34,7 +34,7 @@ public class LandmarkService {
     }
 
     @Transactional
-    public Landmark create(String submitterUuid, String name, LandmarkType type, String description) {
+    public Landmark create(String submitterUuid, String name, LandmarkType type, String description, List<String> pictures) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("地标名称不能为空");
         }
@@ -50,6 +50,11 @@ public class LandmarkService {
         landmark.setUpdateTime(now);
         if (submitterUuid != null) {
             landmark.getBuilderUuids().add(submitterUuid);
+        }
+        if (pictures != null) {
+            pictures.stream()
+                    .filter(url -> url != null && !url.isBlank())
+                    .forEach(landmark.getPictures()::add);
         }
         return landmarkRepository.save(landmark);
     }

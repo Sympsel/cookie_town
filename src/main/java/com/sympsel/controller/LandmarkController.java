@@ -10,12 +10,14 @@ import com.sympsel.entitys.enums.Permission;
 import com.sympsel.entitys.metadatas.Coordinate;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
+import com.sympsel.service.FileStorageService;
 import com.sympsel.service.LandmarkService;
 import com.sympsel.utils.PageUtil;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,15 +25,17 @@ import java.util.List;
 @RequestMapping("/api/landmarks")
 public class LandmarkController {
     private final LandmarkService landmarkService;
+    private final FileStorageService fileStorageService;
 
-    public LandmarkController(LandmarkService landmarkService) {
+    public LandmarkController(LandmarkService landmarkService, FileStorageService fileStorageService) {
         this.landmarkService = landmarkService;
+        this.fileStorageService = fileStorageService;
     }
 
     @PostMapping
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> create(@RequestBody LandmarkRequest request) {
-        Landmark landmark = landmarkService.create(UserContext.currentUuid(), request.name(), request.type(), request.description());
+        Landmark landmark = landmarkService.create(UserContext.currentUuid(), request.name(), request.type(), request.description(), request.pictures());
         return ResponseEntity.status(HttpStatus.CREATED).body(LandmarkResponse.from(landmark));
     }
 
@@ -117,6 +121,22 @@ public class LandmarkController {
     @PostMapping("/{uuid}/pictures")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> addPicture(@PathVariable String uuid, @RequestParam String url) {
+        Landmark landmark = landmarkService.addPicture(uuid, url);
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+    }
+
+    /**
+     * 上传本地图片文件作为地标图片：保存到 uploads/landmarks/{uuid}/，
+     * 并把返回的站内 URL 追加到该地标的图片列表（复用 addPicture）。
+     */
+    @PostMapping("/{uuid}/pictures/upload")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> uploadPicture(@PathVariable String uuid,
+                                                          @RequestParam("file") MultipartFile file) {
+        if (landmarkService.findByUuid(uuid).isEmpty()) {
+            throw new IllegalArgumentException("地标不存在: " + uuid);
+        }
+        String url = fileStorageService.store(file, "landmarks/" + uuid);
         Landmark landmark = landmarkService.addPicture(uuid, url);
         return ResponseEntity.ok(LandmarkResponse.from(landmark));
     }

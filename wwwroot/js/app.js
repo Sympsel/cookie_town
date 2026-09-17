@@ -121,6 +121,38 @@
         return data;
     }
 
+    async function apiUpload(url, file, fieldName) {
+        const fd = new FormData();
+        fd.append(fieldName || 'file', file);
+        const headers = {};
+        const token = getToken();
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        let resp;
+        try {
+            resp = await fetch(url, {method: 'POST', headers: headers, body: fd});
+        } catch (e) {
+            throw new Error('网络错误：无法连接服务器');
+        }
+        const text = await resp.text();
+        let data = null;
+        if (text) {
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                data = {error: text};
+            }
+        }
+        if (!resp.ok) {
+            if (resp.status === 401) clearSession();
+            const msg = (data && data.error) ? data.error : ('上传失败（HTTP ' + resp.status + '）');
+            const err = new Error(msg);
+            err.status = resp.status;
+            throw err;
+        }
+        return data;
+    }
+
     // ---------------- 小工具 ----------------
     function fmtTime(ms) {
         if (!ms) return '';
@@ -182,7 +214,12 @@
     function resolveEndpoint(form) {
         const fd = new FormData(form);
         const body = {};
+        const fileFields = (form.dataset.fileFields || '').split(',').map(function (s) {
+            return s.trim();
+        }).filter(Boolean);
         fd.forEach(function (v, k) {
+            // 文件字段不进 JSON body（改由 multipart 上传）
+            if (fileFields.indexOf(k) !== -1) return;
             // 可选字段留空则不提交（如 parentTownUuid / parentUuid）
             if (typeof v === 'string' && v.trim() === '') return;
             body[k] = v;
@@ -229,6 +266,20 @@
             }
         });
 
+        // 4) 列表字段：data-list-fields 列出的字段按换行拆成字符串数组（如图片 URL 列表）
+        const lf = (form.dataset.listFields || '').split(',').map(function (s) {
+            return s.trim();
+        }).filter(Boolean);
+        lf.forEach(function (name) {
+            if (body[name] !== undefined) {
+                body[name] = String(body[name]).split('\n')
+                    .map(function (s) {
+                        return s.trim();
+                    })
+                    .filter(Boolean);
+            }
+        });
+
         return {url: url, body: body, missing: missing};
     }
 
@@ -238,6 +289,23 @@
         m.textContent = text || '';
         m.classList.toggle('error', !!isError);
         m.classList.toggle('success', !isError && !!text);
+    }
+
+    // 收集表单中 data-file-fields 指定的文件输入里的文件
+    function collectFiles(form) {
+        const names = (form.dataset.fileFields || '').split(',').map(function (s) {
+            return s.trim();
+        }).filter(Boolean);
+        const files = [];
+        names.forEach(function (name) {
+            const inp = form.querySelector('input[type="file"][name="' + name + '"]');
+            if (inp && inp.files) {
+                Array.prototype.forEach.call(inp.files, function (f) {
+                    files.push(f);
+                });
+            }
+        });
+        return files;
     }
 
     function wireForm(form) {
@@ -251,10 +319,21 @@
                 showMsg(form, '缺少参数：' + resolved.missing.join(', '), true);
                 return;
             }
+            const files = collectFiles(form);
             showMsg(form, '提交中…', false);
             try {
                 const hasBody = Object.keys(resolved.body).length > 0;
                 const data = await apiFetch(resolved.url, {method: method, body: hasBody ? resolved.body : undefined});
+                // 两步上传：主请求成功后，把选中的本地图片上传到 data-upload-endpoint（{uuid} 用响应的 uuid 替换）
+                const uploadEp = form.dataset.uploadEndpoint;
+                if (uploadEp && files.length) {
+                    const uid = (data && data.uuid) || resolved.body.uuid || '';
+                    const target = uploadEp.replace('{uuid}', encodeURIComponent(uid));
+                    showMsg(form, '上传图片中…', false);
+                    for (let i = 0; i < files.length; i++) {
+                        await apiUpload(target, files[i], 'file');
+                    }
+                }
                 handleFormSuccess(form, data);
             } catch (e) {
                 showMsg(form, e.message, true);
@@ -301,6 +380,7 @@
         const uuidField = form.querySelector('[name="uuid"]');
         const user = getCurrentUser();
         if (uuidField && user && !uuidField.value) uuidField.value = user.uuid;
+
     }
 
     // ---------------- 磁贴构件 ----------------
@@ -366,8 +446,10 @@
         form.method = (cfg.method || 'POST').toLowerCase();
         form.dataset.endpoint = cfg.endpoint;
         form.dataset.method = (cfg.method || 'POST').toUpperCase();
+
         if (cfg.query && cfg.query.length) form.dataset.queryParams = cfg.query.join(',');
         if (cfg.numbers && cfg.numbers.length) form.dataset.numberFields = cfg.numbers.join(',');
+        if (cfg.lists && cfg.lists.length) form.dataset.listFields = cfg.lists.join(',');
         if (cfg.requirePermission) form.dataset.requirePermission = cfg.requirePermission;
 
         const idBase = 'f' + (formSeq++);
@@ -422,6 +504,64 @@
         return btn;
     }
 
+    // 可复用的文件上传控件：选择本地图片 -> multipart POST -> 重新加载列表
+    const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+    function buildUploadControl(cfg) {
+        const wrap = el('div', 'tile-upload');
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = cfg.accept || 'image/*';
+        if (cfg.multiple) input.multiple = true;
+
+        const btn = el('button', 'tile-action', cfg.label || '上传图片');
+        btn.type = 'button';
+        if (cfg.requirePermission && !can(cfg.requirePermission)) {
+            btn.disabled = true;
+            btn.title = can0Hint(cfg.requirePermission);
+        }
+        const msg = el('p', 'form-message', '');
+        btn.addEventListener('click', async function () {
+            const files = Array.prototype.slice.call(input.files || []);
+            if (!files.length) {
+                msg.textContent = '请先选择文件';
+                msg.className = 'form-message error';
+                return;
+            }
+            // 客户端预校验：过大文件直接拒绝并清空，避免上传后被卡在输入框里删不掉
+            const oversized = files.filter(function (f) {
+                return f.size > MAX_UPLOAD_BYTES;
+            });
+            if (oversized.length) {
+                msg.textContent = '以下图片超过 5MB，已清空选择：' + oversized.map(function (f) {
+                    return f.name;
+                }).join('、');
+                msg.className = 'form-message error';
+                input.value = '';
+                return;
+            }
+            btn.disabled = true;
+            msg.textContent = '上传中…';
+            msg.className = 'form-message';
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    await apiUpload(cfg.endpoint, files[i], cfg.fieldName || 'file');
+                }
+                input.value = '';
+                loadAllLists();
+            } catch (e) {
+                msg.textContent = e.message;
+                msg.className = 'form-message error';
+                input.value = '';
+                btn.disabled = false;
+                if (e.status === 401) renderSessionStatus();
+            }
+        });
+        wrap.appendChild(input);
+        wrap.appendChild(btn);
+        wrap.appendChild(msg);
+        return wrap;
+    }
+
     // 把节点包进一个可折叠的 <details>
     function wrapInDetails(title, node) {
         const d = el('details', 'tile-subform');
@@ -440,6 +580,9 @@
         det.appendChild(formsBox);
         (p.forms || []).forEach(function (cfg) {
             formsBox.appendChild(wrapInDetails(cfg.title, buildForm(cfg)));
+        });
+        (p.uploads || []).forEach(function (cfg) {
+            formsBox.appendChild(wrapInDetails(cfg.title, buildUploadControl(cfg)));
         });
         let loaded = false;
         det.addEventListener('toggle', async function () {
@@ -500,7 +643,27 @@
         return tile(c.uuid, [['内容', c.content], ['发布者', c.publisherUuid], ['UUID', c.uuid]]);
     }
 
-    // ---------------- 各模块交互磁贴构建器（覆盖全部端点） ----------------
+    // 图片行：缩略图 + URL + 移除按钮（移除走 DELETE /pictures?url=）
+    function pictureRow(url, landmarkUuid) {
+        const d = el('div', 'tile tile-item tile-picture');
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.title = url;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '地标图片';
+        img.className = 'picture-thumb';
+        a.appendChild(img);
+        d.appendChild(a);
+        d.appendChild(buildDeleteButton(
+            '/api/landmarks/' + landmarkUuid + '/pictures?url=' + encodeURIComponent(url),
+            '移除', 'Common'));
+        return d;
+    }
+
+    // ---------------- 各模块交互磁贴构建器 ----------------
     const TILE_BUILDERS = {
         '/api/towns': function (t) {
             const node = tile(t.uuid, [
@@ -637,27 +800,20 @@
                 ]
             }));
             node.appendChild(buildPanel({
-                title: '图片', load: {endpoint: '/api/landmarks/' + l.uuid + '/pictures', render: textRow},
-                forms: [
-                    {
-                        title: '添加图片',
-                        endpoint: '/api/landmarks/' + l.uuid + '/pictures',
-                        method: 'POST',
-                        submitLabel: '添加',
-                        requirePermission: 'Common',
-                        query: ['url'],
-                        fields: [{name: 'url', label: '图片 URL', type: 'text', required: true}]
-                    },
-                    {
-                        title: '移除图片',
-                        endpoint: '/api/landmarks/' + l.uuid + '/pictures',
-                        method: 'DELETE',
-                        submitLabel: '移除',
-                        requirePermission: 'Common',
-                        query: ['url'],
-                        fields: [{name: 'url', label: '图片 URL', type: 'text', required: true}]
+                title: '图片',
+                load: {
+                    endpoint: '/api/landmarks/' + l.uuid + '/pictures',
+                    render: function (url) {
+                        return pictureRow(url, l.uuid);
                     }
-                ]
+                },
+                uploads: [{
+                    title: '上传图片',
+                    endpoint: '/api/landmarks/' + l.uuid + '/pictures/upload',
+                    label: '上传',
+                    multiple: true,
+                    requirePermission: 'Common'
+                }]
             }));
             node.appendChild(buildPanel({
                 title: '子地标',
@@ -782,6 +938,7 @@
 
     // ---------------- 列表加载 ----------------
     const PAGE_SIZE = 20;
+
     async function loadList(container, page) {
         const endpoint = container.dataset.endpoint;
         if (!endpoint) return;
@@ -843,7 +1000,9 @@
 
 
     function loadAllLists() {
-        document.querySelectorAll('.tile-grid[data-endpoint]').forEach(loadList);
+        document.querySelectorAll('.tile-grid[data-endpoint]').forEach(function (c) {
+            loadList(c, 0);
+        });
     }
 
     // ---------------- 顶层表单权限门控（静态创建表单） ----------------
