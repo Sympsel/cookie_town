@@ -25,26 +25,24 @@
     </section>
 
     <section class="form-section">
-        <h2>发表评论</h2>
-        <!--
-          磁贴式表单：POST /api/comments，需 Common+ 角色。
-          父评论 UUID 留空表示发主评论；填写则为对该评论的回复。
-        -->
-        <form class="tile-form" id="comment-create-form" action="#" method="post"
-              data-endpoint="/api/comments" data-method="POST">
-            <div class="tile-field">
-                <label for="comment-content">评论内容</label>
-                <textarea id="comment-content" name="content" rows="4" required></textarea>
-            </div>
-            <div class="tile-field">
-                <label for="comment-parent">父评论 UUID（可选，回复时填写）</label>
-                <input id="comment-parent" name="parentUuid" type="text" placeholder="留空表示主评论">
-            </div>
-            <div class="tile-actions">
-                <button class="tile-action" type="submit">发表</button>
-            </div>
-            <p id="comment-message" class="form-message" role="status"></p>
-        </form>
+        <details class = "create-panel">
+            <summary class="tile-action create-toggle"> + 发表评论</summary>
+            <form class="tile-form" id="comment-create-form" action="#" method="post"
+                  data-endpoint="/api/comments" data-method="POST">
+                <div class="tile-field">
+                    <label for="comment-content">评论内容</label>
+                    <textarea id="comment-content" name="content" rows="4" required></textarea>
+                </div>
+                <div class="tile-field">
+                    <label for="comment-parent">父评论 UUID（可选，回复时填写）</label>
+                    <input id="comment-parent" name="parentUuid" type="text" placeholder="留空表示主评论">
+                </div>
+                <div class="tile-actions">
+                    <button class="tile-action" type="submit">发表</button>
+                </div>
+                <p id="comment-message" class="form-message" role="status"></p>
+            </form>
+        </details>
     </section>
 </main>
 

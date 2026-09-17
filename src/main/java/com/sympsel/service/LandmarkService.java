@@ -12,6 +12,10 @@ import com.sympsel.utils.UuidUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +62,11 @@ public class LandmarkService {
     @Transactional(readOnly = true)
     public List<Landmark> findAll() {
         return landmarkRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Landmark> findAll(Pageable pageable) {
+        return landmarkRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

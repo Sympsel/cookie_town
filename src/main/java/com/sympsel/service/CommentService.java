@@ -4,6 +4,8 @@ import com.sympsel.entitys.Comment;
 import com.sympsel.repository.CommentRepository;
 import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +53,11 @@ public class CommentService {
     @Transactional(readOnly = true)
     public List<Comment> findAll() {
         return commentRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Comment> findAll(Pageable pageable) {
+        return commentRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

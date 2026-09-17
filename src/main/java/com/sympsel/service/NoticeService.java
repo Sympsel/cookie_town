@@ -3,6 +3,8 @@ package com.sympsel.service;
 import com.sympsel.entitys.Notice;
 import com.sympsel.repository.NoticeRepository;
 import com.sympsel.utils.UuidUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +43,11 @@ public class NoticeService {
     @Transactional(readOnly = true)
     public List<Notice> findAll() {
         return noticeRepository.findAllByOrderByPublishTimeDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Notice> findAll(Pageable pageable) {
+        return noticeRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

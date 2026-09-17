@@ -25,30 +25,28 @@
     </section>
 
     <section class="form-section">
-        <h2>创建小镇</h2>
-        <!--
-          磁贴式表单：POST /api/towns，需 Common+ 角色。
-          小镇为私有管理模式：创建后仅镇长（属主）或管理员可改/删/管成员。
-        -->
-        <form class="tile-form" id="town-create-form" action="#" method="post"
-              data-endpoint="/api/towns" data-method="POST">
-            <div class="tile-field">
-                <label for="town-name">小镇名称</label>
-                <input id="town-name" name="name" type="text" required>
-            </div>
-            <div class="tile-field">
-                <label for="town-description">简介</label>
-                <textarea id="town-description" name="description" rows="3"></textarea>
-            </div>
-            <div class="tile-field">
-                <label for="town-parent">父城镇 UUID（可选）</label>
-                <input id="town-parent" name="parentTownUuid" type="text" placeholder="留空表示顶级小镇">
-            </div>
-            <div class="tile-actions">
-                <button class="tile-action" type="submit">创建</button>
-            </div>
-            <p id="town-message" class="form-message" role="status"></p>
-        </form>
+        <details class="create-panel">
+            <summary class="tile-action create-toggle">＋ 创建小镇</summary>
+            <form class="tile-form" id="town-create-form" action="#" method="post"
+                  data-endpoint="/api/towns" data-method="POST">
+                <div class="tile-field">
+                    <label for="town-name">小镇名称</label>
+                    <input id="town-name" name="name" type="text" required>
+                </div>
+                <div class="tile-field">
+                    <label for="town-description">简介</label>
+                    <textarea id="town-description" name="description" rows="3"></textarea>
+                </div>
+                <div class="tile-field">
+                    <label for="town-parent">父城镇 UUID（可选）</label>
+                    <input id="town-parent" name="parentTownUuid" type="text" placeholder="留空表示顶级小镇">
+                </div>
+                <div class="tile-actions">
+                    <button class="tile-action" type="submit">创建</button>
+                </div>
+                <p id="town-message" class="form-message" role="status"></p>
+            </form>
+        </details>
     </section>
 </main>
 

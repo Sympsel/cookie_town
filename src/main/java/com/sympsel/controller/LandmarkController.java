@@ -2,6 +2,7 @@ package com.sympsel.controller;
 
 import com.sympsel.dto.LandmarkRequest;
 import com.sympsel.dto.LandmarkResponse;
+import com.sympsel.dto.PageResponse;
 import com.sympsel.dto.UserResponse;
 import com.sympsel.entitys.Landmark;
 import com.sympsel.entitys.enums.LandmarkStatus;
@@ -10,6 +11,8 @@ import com.sympsel.entitys.metadatas.Coordinate;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.LandmarkService;
+import com.sympsel.utils.PageUtil;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,8 +36,11 @@ public class LandmarkController {
     }
 
     @GetMapping
-    public List<LandmarkResponse> list() {
-        return landmarkService.findAll().stream().map(LandmarkResponse::from).toList();
+    public PageResponse<LandmarkResponse> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageUtil.desc(page, size, "createTime");
+        return PageResponse.from(landmarkService.findAll(pageable), LandmarkResponse::from);
     }
 
     @GetMapping("/{uuid}")

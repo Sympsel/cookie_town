@@ -5,6 +5,8 @@ import com.sympsel.entitys.enums.Score;
 import com.sympsel.repository.MessageBoardRepository;
 import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,11 @@ public class MessageBoardService {
     @Transactional(readOnly = true)
     public List<MessageBoard> findAll() {
         return messageBoardRepository.findAllByOrderByCreateTimeDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MessageBoard> findAll(Pageable pageable) {
+        return messageBoardRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

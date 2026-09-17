@@ -25,26 +25,24 @@
     </section>
 
     <section class="form-section">
-        <h2>发布公告</h2>
-        <!--
-          磁贴式表单：POST /api/notices，仅管理员（Admin）可发布/修改/删除。
-          非管理员访问会被后端拦截返回 403；后续 JS 可根据登录权限决定是否显示此表单。
-        -->
-        <form class="tile-form" id="notice-create-form" action="#" method="post"
-              data-endpoint="/api/notices" data-method="POST" data-require-permission="Admin">
-            <div class="tile-field">
-                <label for="notice-title">标题</label>
-                <input id="notice-title" name="title" type="text" required>
-            </div>
-            <div class="tile-field">
-                <label for="notice-content">内容</label>
-                <textarea id="notice-content" name="content" rows="5" required></textarea>
-            </div>
-            <div class="tile-actions">
-                <button class="tile-action" type="submit">发布</button>
-            </div>
-            <p id="notice-message" class="form-message" role="status"></p>
-        </form>
+        <details class="create-panel">
+            <summary class="tile-action create-toggle">+ 发布公告</summary>
+            <form class="tile-form" id="notice-create-form" action="#" method="post"
+                  data-endpoint="/api/notices" data-method="POST" data-require-permission="Admin">
+                <div class="tile-field">
+                    <label for="notice-title">标题</label>
+                    <input id="notice-title" name="title" type="text" required>
+                </div>
+                <div class="tile-field">
+                    <label for="notice-content">内容</label>
+                    <textarea id="notice-content" name="content" rows="5" required></textarea>
+                </div>
+                <div class="tile-actions">
+                    <button class="tile-action" type="submit">发布</button>
+                </div>
+                <p id="notice-message" class="form-message" role="status"></p>
+            </form>
+        </details>
     </section>
 </main>
 

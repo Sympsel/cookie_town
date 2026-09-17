@@ -2,11 +2,14 @@ package com.sympsel.controller;
 
 import com.sympsel.dto.NoticeRequest;
 import com.sympsel.dto.NoticeResponse;
+import com.sympsel.dto.PageResponse;
 import com.sympsel.entitys.Notice;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.NoticeService;
+import com.sympsel.utils.PageUtil;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +33,11 @@ public class NoticeController {
     }
 
     @GetMapping
-    public List<NoticeResponse> list() {
-        return noticeService.findAll().stream().map(NoticeResponse::from).toList();
+    public PageResponse<NoticeResponse> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageUtil.desc(page, size, "publishTime");
+        return PageResponse.from(noticeService.findAll(pageable), NoticeResponse::from);
     }
 
     @GetMapping("/{uuid}")

@@ -6,6 +6,8 @@ import com.sympsel.repository.TownRepository;
 import com.sympsel.repository.UserRepository;
 import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +65,11 @@ public class TownService {
     @Transactional(readOnly = true)
     public List<Town> findAll() {
         return townRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Town> findAll(Pageable pageable) {
+        return townRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

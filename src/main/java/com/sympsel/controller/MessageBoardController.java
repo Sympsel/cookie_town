@@ -2,11 +2,14 @@ package com.sympsel.controller;
 
 import com.sympsel.dto.MessageBoardRequest;
 import com.sympsel.dto.MessageBoardResponse;
+import com.sympsel.dto.PageResponse;
 import com.sympsel.entitys.MessageBoard;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.MessageBoardService;
+import com.sympsel.utils.PageUtil;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +33,11 @@ public class MessageBoardController {
     }
 
     @GetMapping
-    public List<MessageBoardResponse> list() {
-        return messageBoardService.findAll().stream().map(MessageBoardResponse::from).toList();
+    public PageResponse<MessageBoardResponse> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageUtil.desc(page, size, "createTime");
+        return PageResponse.from(messageBoardService.findAll(pageable), MessageBoardResponse::from);
     }
 
     @GetMapping("/{uuid}")

@@ -5,6 +5,8 @@ import com.sympsel.entitys.enums.Permission;
 import com.sympsel.repository.UserRepository;
 import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +58,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<User> findAll() {
         return userRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<User> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable);
     }
 
     public boolean verifyPassword(String rawPassword, User user) {
