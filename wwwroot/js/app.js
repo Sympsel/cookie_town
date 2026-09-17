@@ -23,6 +23,10 @@
     // 权限等级：Admin > Common > Visitor/Marked（后两者只读）
     const PERMISSION_RANK = {Visitor: 0, Marked: 0, Common: 1, Admin: 2};
 
+    // 特权标签白名单（启动时从 GET /api/config/privileged-tags 拉取）：
+    // 拥有其中任一标签的用户视为「开发者」，可修复其它玩家账户信息（用户名/简介/重置密码）
+    let PRIVILEGED_TAGS = [];
+
     // 枚举选项（与后端 entitys.enums 对齐）
     const SCORES = [
         {value: 'Perfect', label: '极好（5）'}, {value: 'Good', label: '好（4）'},
@@ -88,6 +92,30 @@
     function can(required) {
         const user = getCurrentUser();
         return !!(user && hasPermission(user.permission, required));
+    }
+
+    // 拉取特权标签白名单（失败则视为空，前端不放行；后端始终是权威）
+    async function loadPrivilegedTags() {
+        try {
+            const tags = await apiFetch('/api/config/privileged-tags');
+            PRIVILEGED_TAGS = Array.isArray(tags) ? tags : [];
+        } catch (e) {
+            PRIVILEGED_TAGS = [];
+        }
+    }
+
+    // 某用户是否为开发者（拥有任一特权标签）
+    function isDeveloper(user) {
+        if (!user || !Array.isArray(user.tags) || PRIVILEGED_TAGS.length === 0) return false;
+        return user.tags.some(function (t) {
+            return PRIVILEGED_TAGS.indexOf(t) !== -1;
+        });
+    }
+
+    // 当前登录用户能否管理目标用户的账户信息（本人或开发者；管理员角色不再自动放行）
+    function canManageAccount(targetUuid) {
+        const me = getCurrentUser();
+        return !!(me && (me.uuid === targetUuid || isDeveloper(me)));
     }
 
     // ---------------- API 封装 ----------------
@@ -1044,17 +1072,35 @@
             const detail = el('a', 'tile-action tile-detail-link', '详情页');
             detail.href = 'user.html?uuid=' + encodeURIComponent(u.uuid);
             actions.appendChild(detail);
-            actions.appendChild(wrapInDetails('改资料', buildForm({
-                title: '改资料',
-                endpoint: '/api/users/' + u.uuid,
-                method: 'PUT',
-                submitLabel: '保存',
-                requirePermission: 'Common',
-                fields: [
-                    {name: 'name', label: '用户名', value: u.name, type: 'text', minlength: 3, maxlength: 16},
-                    {name: 'introduction', label: '简介', value: u.introduction, type: 'textarea'}
-                ]
-            })));
+            // 账户信息（用户名/简介/重置密码）：仅本人或开发者可操作，管理员角色不再自动放行
+            if (canManageAccount(u.uuid)) {
+                actions.appendChild(wrapInDetails('改资料', buildForm({
+                    title: '改资料',
+                    endpoint: '/api/users/' + u.uuid,
+                    method: 'PUT',
+                    submitLabel: '保存',
+                    requirePermission: 'Common',
+                    fields: [
+                        {name: 'name', label: '用户名', value: u.name, type: 'text', minlength: 3, maxlength: 16},
+                        {name: 'introduction', label: '简介', value: u.introduction, type: 'textarea'}
+                    ]
+                })));
+                actions.appendChild(wrapInDetails('重置密码', buildForm({
+                    title: '重置密码',
+                    endpoint: '/api/users/' + u.uuid + '/password',
+                    method: 'PUT',
+                    submitLabel: '重置密码',
+                    requirePermission: 'Common',
+                    fields: [{
+                        name: 'password',
+                        label: '新密码',
+                        type: 'password',
+                        required: true,
+                        minlength: 6,
+                        maxlength: 18
+                    }]
+                })));
+            }
             actions.appendChild(wrapInDetails('改权限', buildForm({
                 title: '改权限',
                 endpoint: '/api/users/' + u.uuid + '/permission',
@@ -1246,6 +1292,7 @@
     // ---------------- 初始化 ----------------
     async function init() {
         await refreshSession();
+        await loadPrivilegedTags();
         document.querySelectorAll('form.tile-form').forEach(wireForm);
         document.querySelectorAll('form.tile-form').forEach(prefillSelfUuid);
         applyPermissionGating();

@@ -37,7 +37,10 @@ public class AuthController {
             throw new UnauthorizedException("用户名或密码错误");
         }
         String token = jwtService.generateToken(user);
-        return ResponseEntity.ok(new LoginResponse(token, "Bearer", jwtService.getExpiration(), UserResponse.from(user)));
+        // findDtoByUuid 在事务内映射，返回含 tags 的 DTO，使前端会话持有当前用户标签（用于开发者特权门控）
+        UserResponse dto = userService.findDtoByUuid(user.getUuid())
+                .orElseThrow(() -> new UnauthorizedException("用户名或密码错误"));
+        return ResponseEntity.ok(new LoginResponse(token, "Bearer", jwtService.getExpiration(), dto));
     }
 
     /**
@@ -46,8 +49,8 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {
         String uuid = UserContext.currentUuid();
-        return userService.findByUuid(uuid)
-                .map(user -> ResponseEntity.ok(UserResponse.from(user)))
+        return userService.findDtoByUuid(uuid)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 }

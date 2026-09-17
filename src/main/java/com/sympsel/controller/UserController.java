@@ -1,6 +1,7 @@
 package com.sympsel.controller;
 
 import com.sympsel.dto.PageResponse;
+import com.sympsel.dto.PasswordResetRequest;
 import com.sympsel.dto.RegisterRequest;
 import com.sympsel.dto.UserResponse;
 import com.sympsel.dto.UserUpdateRequest;
@@ -58,6 +59,17 @@ public class UserController {
     public ResponseEntity<UserResponse> update(@PathVariable String uuid, @RequestBody UserUpdateRequest request) {
         User user = userService.update(uuid, request.name(), request.introduction());
         return ResponseEntity.ok(UserResponse.from(user));
+    }
+
+    /**
+     * 重置密码：仅本人或拥有特权标签的开发者可操作（Service 层校验）。
+     * 管理员角色本身不再能修改他人密码。
+     */
+    @PutMapping("/{uuid}/password")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<Void> resetPassword(@PathVariable String uuid, @RequestBody PasswordResetRequest request) {
+        userService.resetPassword(uuid, request.password());
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{uuid}")

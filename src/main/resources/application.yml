@@ -31,3 +31,7 @@ jwt:
 app:
   bootstrap-admin:
     username: ${ADMIN_USERNAME}
+  # 特权标签白名单（逗号分隔）：拥有其中任一标签的用户视为「开发者」，
+  # 可全权修复其它玩家的账户信息（用户名 / 简介 / 重置密码）。
+  # 注意：管理员角色本身不再具备修改他人账户信息的权力，账户修复统一交由开发者。
+  privileged-tags: ${PRIVILEGED_TAGS:开发者,站长}
