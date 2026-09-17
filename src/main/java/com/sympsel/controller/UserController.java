@@ -7,22 +7,27 @@ import com.sympsel.dto.UserUpdateRequest;
 import com.sympsel.entitys.User;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.security.RequirePermission;
+import com.sympsel.service.FileStorageService;
 import com.sympsel.service.UserService;
 import com.sympsel.utils.PageUtil;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.function.Function;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
     private final UserService userService;
+    private final FileStorageService fileStorageService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, FileStorageService fileStorageService) {
         this.userService = userService;
+        this.fileStorageService = fileStorageService;
     }
 
     @PostMapping
@@ -36,13 +41,15 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
-        return PageResponse.from(userService.findAll(pageable), UserResponse::from);
+        // findAllDto 已在事务内映射为 UserResponse（含 tags），此处 identity 透传
+        return PageResponse.from(userService.findAllDto(pageable), Function.identity());
     }
 
     @GetMapping("/{uuid}")
     public ResponseEntity<UserResponse> getByUuid(@PathVariable String uuid) {
-        return userService.findByUuid(uuid)
-                .map(user -> ResponseEntity.ok(UserResponse.from(user)))
+        // findDtoByUuid 已在事务内映射为 UserResponse（含 tags），供详情页展示
+        return userService.findDtoByUuid(uuid)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -70,5 +77,42 @@ public class UserController {
     @GetMapping("/{uuid}/tags")
     public List<String> tags(@PathVariable String uuid) {
         return userService.findTags(uuid);
+    }
+
+    /**
+     * 管理员为其它玩家添加自定义标签（标签通过查询参数传递）。
+     */
+    @PostMapping("/{uuid}/tags")
+    @RequirePermission({Permission.Admin})
+    public List<String> addTag(@PathVariable String uuid, @RequestParam String tag) {
+        return userService.addTag(uuid, tag);
+    }
+
+    /**
+     * 管理员移除其它玩家的自定义标签。
+     */
+    @DeleteMapping("/{uuid}/tags")
+    @RequirePermission({Permission.Admin})
+    public List<String> removeTag(@PathVariable String uuid, @RequestParam String tag) {
+        return userService.removeTag(uuid, tag);
+    }
+
+    /**
+     * 上传本地图片作为用户头像：以固定文件名保存到 uploads/avatars/{uuid}.{ext}（同名覆盖），
+     * 更新 avatar 字段，并清理被替换掉的旧头像文件。仅本人或管理员可操作。
+     */
+    @PostMapping("/{uuid}/avatar/upload")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<UserResponse> uploadAvatar(@PathVariable String uuid,
+                                                     @RequestParam("file") MultipartFile file) {
+        User user = userService.findByUuid(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + uuid));
+        String oldUrl = user.getAvatar();
+        String newUrl = fileStorageService.store(file, "avatars", uuid);
+        User updated = userService.updateAvatar(uuid, newUrl);
+        if (oldUrl != null && !oldUrl.equals(newUrl)) {
+            fileStorageService.deleteByUrl(oldUrl);
+        }
+        return ResponseEntity.ok(UserResponse.from(updated));
     }
 }

@@ -8,12 +8,14 @@ import com.sympsel.entitys.Town;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
+import com.sympsel.service.FileStorageService;
 import com.sympsel.service.TownService;
 import com.sympsel.utils.PageUtil;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,9 +23,11 @@ import java.util.List;
 @RequestMapping("/api/towns")
 public class TownController {
     private final TownService townService;
+    private final FileStorageService fileStorageService;
 
-    public TownController(TownService townService) {
+    public TownController(TownService townService, FileStorageService fileStorageService) {
         this.townService = townService;
+        this.fileStorageService = fileStorageService;
     }
 
     @PostMapping
@@ -85,5 +89,40 @@ public class TownController {
     @GetMapping("/{uuid}/members")
     public List<UserResponse> members(@PathVariable String uuid) {
         return townService.findMembers(uuid).stream().map(UserResponse::from).toList();
+    }
+
+    @GetMapping("/{uuid}/pictures")
+    public List<String> pictures(@PathVariable String uuid) {
+        return townService.findPictures(uuid);
+    }
+
+    @PostMapping("/{uuid}/pictures")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<TownResponse> addPicture(@PathVariable String uuid, @RequestParam String url) {
+        Town town = townService.addPicture(uuid, url);
+        return ResponseEntity.ok(TownResponse.from(town));
+    }
+
+    /**
+     * 上传本地图片作为小镇轮播图：保存到 uploads/towns/{uuid}/，
+     * 并把返回的站内 URL 追加到图片列表（复用 addPicture，属主或管理员）。
+     */
+    @PostMapping("/{uuid}/pictures/upload")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<TownResponse> uploadPicture(@PathVariable String uuid,
+                                                      @RequestParam("file") MultipartFile file) {
+        if (townService.findByUuid(uuid).isEmpty()) {
+            throw new IllegalArgumentException("小镇不存在: " + uuid);
+        }
+        String url = fileStorageService.store(file, "towns/" + uuid);
+        Town town = townService.addPicture(uuid, url);
+        return ResponseEntity.ok(TownResponse.from(town));
+    }
+
+    @DeleteMapping("/{uuid}/pictures")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<TownResponse> removePicture(@PathVariable String uuid, @RequestParam String url) {
+        Town town = townService.removePicture(uuid, url);
+        return ResponseEntity.ok(TownResponse.from(town));
     }
 }

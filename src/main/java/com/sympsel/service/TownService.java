@@ -153,4 +153,31 @@ public class TownService {
                 .filter(Objects::nonNull)
                 .toList();
     }
+
+    @Transactional
+    public Town addPicture(String uuid, String pictureUrl) {
+        Town town = townRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(town.getOwnerUuid());
+        town.getPictures().add(pictureUrl);
+        town.setUpdateTime(System.currentTimeMillis());
+        return townRepository.save(town);
+    }
+
+    @Transactional
+    public Town removePicture(String uuid, String pictureUrl) {
+        Town town = townRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        PermissionGuard.requireOwnerOrAdmin(town.getOwnerUuid());
+        town.getPictures().remove(pictureUrl);
+        town.setUpdateTime(System.currentTimeMillis());
+        return townRepository.save(town);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> findPictures(String uuid) {
+        Town town = townRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("小镇不存在: " + uuid));
+        return List.copyOf(town.getPictures());
+    }
 }

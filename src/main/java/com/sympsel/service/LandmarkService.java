@@ -1,10 +1,13 @@
 package com.sympsel.service;
 
+import com.sympsel.entitys.Comment;
 import com.sympsel.entitys.Landmark;
 import com.sympsel.entitys.User;
 import com.sympsel.entitys.enums.LandmarkStatus;
 import com.sympsel.entitys.enums.LandmarkType;
+import com.sympsel.entitys.enums.Score;
 import com.sympsel.entitys.metadatas.Coordinate;
+import com.sympsel.repository.CommentRepository;
 import com.sympsel.repository.LandmarkRepository;
 import com.sympsel.repository.UserRepository;
 import com.sympsel.security.PermissionGuard;
@@ -14,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
@@ -27,10 +29,12 @@ import java.util.stream.Collectors;
 public class LandmarkService {
     private final LandmarkRepository landmarkRepository;
     private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
 
-    public LandmarkService(LandmarkRepository landmarkRepository, UserRepository userRepository) {
+    public LandmarkService(LandmarkRepository landmarkRepository, UserRepository userRepository, CommentRepository commentRepository) {
         this.landmarkRepository = landmarkRepository;
         this.userRepository = userRepository;
+        this.commentRepository = commentRepository;
     }
 
     @Transactional
@@ -223,5 +227,53 @@ public class LandmarkService {
         Landmark landmark = landmarkRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
         return List.copyOf(landmark.getPictures());
+    }
+
+    @Transactional
+    public Landmark addCommentUuid(String uuid, String commentUuid) {
+        Landmark landmark = landmarkRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
+        if (!landmark.getCommentUuids().contains(commentUuid)) {
+            landmark.getCommentUuids().add(commentUuid);
+        }
+        // 评论可能携带评分：重算地标总评分（仅统计有评分的评论）
+        recomputeScore(landmark);
+        landmark.setUpdateTime(System.currentTimeMillis());
+        return landmarkRepository.save(landmark);
+    }
+
+    /**
+     * 重算地标总评分：取其挂载评论中「携带评分」的那些，按 Score 的数值求平均，保留 1 位小数。
+     * 评论不一定携带评分——无评分的评论不计入；若没有任何带评分的评论，总评分为 0.0。
+     */
+    private void recomputeScore(Landmark landmark) {
+        List<String> commentUuids = List.copyOf(landmark.getCommentUuids());
+        if (commentUuids.isEmpty()) {
+            landmark.setScore(0.0);
+            return;
+        }
+        double avg = commentRepository.findAllById(commentUuids).stream()
+                .map(Comment::getScore)
+                .filter(Objects::nonNull)
+                .mapToInt(Score::getValue)
+                .average()
+                .orElse(0.0);
+        landmark.setScore(Math.round(avg * 10.0) / 10.0);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Comment> findComments(String uuid) {
+        Landmark landmark = landmarkRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("地标不存在: " + uuid));
+        List<String> commentUuids = List.copyOf(landmark.getCommentUuids());
+        if (commentUuids.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Comment> commentMap = commentRepository.findAllById(commentUuids).stream()
+                .collect(Collectors.toMap(Comment::getUuid, Function.identity()));
+        return commentUuids.stream()
+                .map(commentMap::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 }

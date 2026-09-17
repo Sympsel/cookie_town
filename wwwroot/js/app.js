@@ -42,6 +42,18 @@
         {value: 'Visitor', label: '访客'}, {value: 'Marked', label: '受限'}
     ];
 
+    const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
+        '<rect width="64" height="64" rx="8" fill="#c9ccd6"/>' +
+        '<circle cx="32" cy="24" r="11" fill="#82879a"/>' +
+        '<path d="M10 58c0-12 10-18 22-18s22 6 22 18z" fill="#82879a"/>' +
+        '</svg>');
+
+    // 取用户头像 URL：无则回退默认头像
+    function avatarSrc(user) {
+        return (user && user.avatar) ? user.avatar : DEFAULT_AVATAR;
+    }
+
     // ---------------- 会话 ----------------
     function getToken() {
         return localStorage.getItem(TOKEN_KEY);
@@ -159,6 +171,34 @@
         return new Date(ms).toLocaleString();
     }
 
+    // 总评分显示：数字保留 1 位小数（文档「总评分，double，保留 1 位小数」）；非数字原样返回
+    function fmtScore(n) {
+        if (typeof n === 'number' && !isNaN(n)) return n.toFixed(1);
+        return (n == null) ? '' : String(n);
+    }
+
+    // Score 枚举值 -> 友好标签（Perfect -> 极好（5））；空值返回 ''（磁贴会跳过不显示）
+    function scoreLabel(v) {
+        if (v == null || v === '') return '';
+        const hit = SCORES.filter(function (o) {
+            return o.value === v;
+        })[0];
+        return hit ? hit.label : String(v);
+    }
+
+    // 权限 -> CSS 类名（perm-admin / perm-common / perm-visitor / perm-marked），供着色
+    function permClass(p) {
+        return 'perm-' + String(p == null ? '' : p).toLowerCase();
+    }
+
+    // 权限枚举 -> 友好标签（Admin -> 管理员）
+    function permLabel(p) {
+        const hit = PERMISSIONS.filter(function (o) {
+            return o.value === p;
+        })[0];
+        return hit ? hit.label : String(p == null ? '' : p);
+    }
+
     function el(tag, className, text) {
         const n = document.createElement(tag);
         if (className) n.className = className;
@@ -175,6 +215,11 @@
         if (box) {
             box.textContent = '';
             if (user) {
+                const av = document.createElement('img');
+                av.src = avatarSrc(user);
+                av.alt = user.name;
+                av.className = 'session-avatar';
+                box.appendChild(av);
                 box.appendChild(el('span', 'session-name', user.name + '（' + user.permission + '）'));
                 const logout = el('button', 'session-logout', '登出');
                 logout.type = 'button';
@@ -228,7 +273,7 @@
         let url = form.dataset.endpoint || '';
 
         // 1) 路径参数：{name} 用同名字段替换并移出 body
-        url = url.replace(/\{(\w+)\}/g, function (_, name) {
+        url = url.replace(/\{(\w+)}/g, function (_, name) {
             if (body[name] !== undefined) {
                 const val = body[name];
                 delete body[name];
@@ -506,6 +551,7 @@
 
     // 可复用的文件上传控件：选择本地图片 -> multipart POST -> 重新加载列表
     const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
     function buildUploadControl(cfg) {
         const wrap = el('div', 'tile-upload');
         const input = document.createElement('input');
@@ -547,6 +593,7 @@
                     await apiUpload(cfg.endpoint, files[i], cfg.fieldName || 'file');
                 }
                 input.value = '';
+                if (cfg.onSuccess) await cfg.onSuccess();
                 loadAllLists();
             } catch (e) {
                 msg.textContent = e.message;
@@ -617,8 +664,39 @@
     }
 
     // 子资源项渲染器
+    // 用户磁贴头部：头像 + 用户名 + 内联标签 + 权限徽章 +「我」标识
+    function userHead(u) {
+        const head = el('div', 'user-head');
+        const av = document.createElement('img');
+        av.src = avatarSrc(u);
+        av.alt = u.name;
+        av.className = 'tile-avatar';
+        head.appendChild(av);
+
+        const text = el('div', 'user-head-text');
+        const line = el('div', 'user-name-line');
+        line.appendChild(el('span', 'user-name', u.name));
+        // 标签直接跟在用户名后面（标签不会很长）
+        (u.tags || []).forEach(function (t) {
+            if (t) line.appendChild(el('span', 'user-tag', String(t)));
+        });
+        // 权限徽章（按权限着色）
+        line.appendChild(el('span', 'perm-badge ' + permClass(u.permission), permLabel(u.permission)));
+        // 已登录用户主体标识
+        const me = getCurrentUser();
+        if (me && me.uuid === u.uuid) line.appendChild(el('span', 'me-badge', '我'));
+        text.appendChild(line);
+        head.appendChild(text);
+        return head;
+    }
+
     function userChip(u) {
-        return tile(u.uuid, [['用户', u.name], ['权限', u.permission], ['UUID', u.uuid]]);
+        const node = tile(u.uuid, [['UUID', u.uuid]]);
+        node.classList.add(permClass(u.permission));
+        const me = getCurrentUser();
+        if (me && me.uuid === u.uuid) node.classList.add('is-me');
+        node.insertBefore(userHead(u), node.firstChild);
+        return node;
     }
 
     function coordRow(c) {
@@ -628,6 +706,13 @@
     function textRow(s) {
         const d = el('div', 'tile tile-item');
         d.appendChild(el('span', 'tile-val', String(s)));
+        return d;
+    }
+
+    // 标签面板行：以 chip 形式展示单个标签
+    function tagRow(t) {
+        const d = el('div', 'tile tile-item');
+        d.appendChild(el('span', 'user-tag', String(t)));
         return d;
     }
 
@@ -644,7 +729,8 @@
     }
 
     // 图片行：缩略图 + URL + 移除按钮（移除走 DELETE /pictures?url=）
-    function pictureRow(url, landmarkUuid) {
+    function pictureRow(url, ownerUuid, basePath, altText) {
+        basePath = basePath || '/api/landmarks';
         const d = el('div', 'tile tile-item tile-picture');
         const a = document.createElement('a');
         a.href = url;
@@ -653,12 +739,12 @@
         a.title = url;
         const img = document.createElement('img');
         img.src = url;
-        img.alt = '地标图片';
+        img.alt = altText || '图片';
         img.className = 'picture-thumb';
         a.appendChild(img);
         d.appendChild(a);
         d.appendChild(buildDeleteButton(
-            '/api/landmarks/' + landmarkUuid + '/pictures?url=' + encodeURIComponent(url),
+            basePath + '/' + ownerUuid + '/pictures?url=' + encodeURIComponent(url),
             '移除', 'Common'));
         return d;
     }
@@ -667,7 +753,7 @@
     const TILE_BUILDERS = {
         '/api/towns': function (t) {
             const node = tile(t.uuid, [
-                ['名称', t.name], ['简介', t.description], ['评分', t.score],
+                ['名称', t.name], ['简介', t.description], ['评分', fmtScore(t.score)],
                 ['镇长', t.ownerUuid], ['创建', fmtTime(t.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
@@ -709,15 +795,34 @@
                 title: '子城镇',
                 load: {endpoint: '/api/towns/' + t.uuid + '/children', render: townChip}
             }));
+            node.appendChild(buildPanel({
+                title: '轮播图',
+                load: {
+                    endpoint: '/api/towns/' + t.uuid + '/pictures',
+                    render: function (url) {
+                        return pictureRow(url, t.uuid, '/api/towns', '小镇图片');
+                    }
+                },
+                uploads: [{
+                    title: '上传轮播图',
+                    endpoint: '/api/towns/' + t.uuid + '/pictures/upload',
+                    label: '上传',
+                    multiple: true,
+                    requirePermission: 'Common'
+                }]
+            }));
             return node;
         },
 
         '/api/landmarks': function (l) {
             const node = tile(l.uuid, [
                 ['地标', l.name], ['类型', l.type], ['状态', l.status],
-                ['简介', l.description], ['评分', l.score], ['提交者', l.submitterUuid]
+                ['简介', l.description], ['评分', fmtScore(l.score)], ['提交者', l.submitterUuid]
             ]);
             const actions = el('div', 'tile-actions');
+            const detail = el('a', 'tile-action tile-detail-link', '详情页');
+            detail.href = 'landmark.html?uuid=' + encodeURIComponent(l.uuid);
+            actions.appendChild(detail);
             actions.appendChild(wrapInDetails('编辑', buildForm({
                 title: '编辑',
                 endpoint: '/api/landmarks/' + l.uuid,
@@ -819,6 +924,31 @@
                 title: '子地标',
                 load: {endpoint: '/api/landmarks/' + l.uuid + '/children', render: landmarkChip}
             }));
+            node.appendChild(buildPanel({
+                title: '评论',
+                load: {
+                    endpoint: '/api/landmarks/' + l.uuid + '/comments',
+                    render: function (c) {
+                        return TILE_BUILDERS['/api/comments'](c);
+                    }
+                },
+                forms: [{
+                    title: '发表评论',
+                    endpoint: '/api/landmarks/' + l.uuid + '/comments',
+                    method: 'POST',
+                    submitLabel: '发表',
+                    requirePermission: 'Common',
+                    fields: [
+                        {name: 'content', label: '评论内容', type: 'textarea', required: true},
+                        {
+                            name: 'score',
+                            label: '评分（可选）',
+                            type: 'select',
+                            options: [{value: '', label: '不评分'}].concat(SCORES)
+                        }
+                    ]
+                }]
+            }));
             return node;
         },
 
@@ -843,7 +973,7 @@
 
         '/api/message-boards': function (m) {
             const node = tile(m.uuid, [
-                ['内容', m.content], ['评分', m.score],
+                ['内容', m.content], ['评分', scoreLabel(m.score)],
                 ['留言者', m.publisherUuid], ['时间', fmtTime(m.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
@@ -869,7 +999,7 @@
 
         '/api/comments': function (c) {
             const node = tile(c.uuid, [
-                ['内容', c.content], ['发布者', c.publisherUuid],
+                ['内容', c.content], ['评分', scoreLabel(c.score)], ['发布者', c.publisherUuid],
                 ['父评论', c.parentUuid || '—'], ['时间', fmtTime(c.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
@@ -902,10 +1032,18 @@
 
         '/api/users': function (u) {
             const node = tile(u.uuid, [
-                ['用户名', u.name], ['权限', u.permission],
                 ['简介', u.introduction], ['UUID', u.uuid]
             ]);
+            // 权限着色 +「我」高亮：CSS 据磁贴根类名上色
+            node.classList.add(permClass(u.permission));
+            const me = getCurrentUser();
+            if (me && me.uuid === u.uuid) node.classList.add('is-me');
+            // 头部：头像 + 用户名 + 内联标签 + 权限徽章 +「我」标识（取代独立标签面板）
+            node.insertBefore(userHead(u), node.firstChild);
             const actions = el('div', 'tile-actions');
+            const detail = el('a', 'tile-action tile-detail-link', '详情页');
+            detail.href = 'user.html?uuid=' + encodeURIComponent(u.uuid);
+            actions.appendChild(detail);
             actions.appendChild(wrapInDetails('改资料', buildForm({
                 title: '改资料',
                 endpoint: '/api/users/' + u.uuid,
@@ -929,8 +1067,42 @@
             actions.appendChild(buildDeleteButton('/api/users/' + u.uuid, '删除', 'Admin'));
             node.appendChild(actions);
             node.appendChild(buildPanel({
+                title: '头像',
+                uploads: [{
+                    title: '上传头像',
+                    endpoint: '/api/users/' + u.uuid + '/avatar/upload',
+                    label: '上传',
+                    accept: 'image/*',
+                    requirePermission: 'Common',
+                    onSuccess: function () {
+                        return refreshSession();
+                    }
+                }]
+            }));
+            // 标签管理（仅管理员）：展开时加载当前标签，并提供添加/移除表单
+            node.appendChild(buildPanel({
                 title: '标签',
-                load: {endpoint: '/api/users/' + u.uuid + '/tags', render: textRow}
+                load: {endpoint: '/api/users/' + u.uuid + '/tags', render: tagRow},
+                forms: [
+                    {
+                        title: '添加标签',
+                        endpoint: '/api/users/' + u.uuid + '/tags',
+                        method: 'POST',
+                        submitLabel: '添加',
+                        requirePermission: 'Admin',
+                        query: ['tag'],
+                        fields: [{name: 'tag', label: '标签', type: 'text', required: true, maxlength: 16}]
+                    },
+                    {
+                        title: '移除标签',
+                        endpoint: '/api/users/' + u.uuid + '/tags',
+                        method: 'DELETE',
+                        submitLabel: '移除',
+                        requirePermission: 'Admin',
+                        query: ['tag'],
+                        fields: [{name: 'tag', label: '标签', type: 'text', required: true}]
+                    }
+                ]
             }));
             return node;
         }
@@ -1003,6 +1175,56 @@
         document.querySelectorAll('.tile-grid[data-endpoint]').forEach(function (c) {
             loadList(c, 0);
         });
+        // 详情页：任何改动后重新加载单个地标（评论/图片/编辑等提交都会走到这里）
+        if (document.getElementById('landmark-detail')) {
+            initLandmarkDetail();
+        }
+        // 玩家详情页：改动资料/权限/标签后重新加载单个用户
+        if (document.getElementById('user-detail')) {
+            initUserDetail();
+        }
+    }
+
+    // 地标详情页：按 URL 的 ?uuid= 加载单个地标并复用磁贴构建器渲染
+    async function initLandmarkDetail() {
+        const box = document.getElementById('landmark-detail');
+        if (!box) return;
+        const uuid = new URLSearchParams(location.search).get('uuid');
+        box.textContent = '';
+        if (!uuid) {
+            box.appendChild(el('p', 'empty-hint error', '缺少地标 UUID 参数（?uuid=…）。'));
+            return;
+        }
+        box.appendChild(el('p', 'empty-hint', '加载中…'));
+        try {
+            const l = await apiFetch('/api/landmarks/' + encodeURIComponent(uuid));
+            box.textContent = '';
+            box.appendChild(TILE_BUILDERS['/api/landmarks'](l));
+        } catch (e) {
+            box.textContent = '';
+            box.appendChild(el('p', 'empty-hint error', '加载失败：' + e.message));
+        }
+    }
+
+    // 玩家详情页：按 URL 的 ?uuid= 加载单个用户并复用磁贴构建器渲染
+    async function initUserDetail() {
+        const box = document.getElementById('user-detail');
+        if (!box) return;
+        const uuid = new URLSearchParams(location.search).get('uuid');
+        box.textContent = '';
+        if (!uuid) {
+            box.appendChild(el('p', 'empty-hint error', '缺少用户 UUID 参数（?uuid=…）。'));
+            return;
+        }
+        box.appendChild(el('p', 'empty-hint', '加载中…'));
+        try {
+            const u = await apiFetch('/api/users/' + encodeURIComponent(uuid));
+            box.textContent = '';
+            box.appendChild(TILE_BUILDERS['/api/users'](u));
+        } catch (e) {
+            box.textContent = '';
+            box.appendChild(el('p', 'empty-hint error', '加载失败：' + e.message));
+        }
     }
 
     // ---------------- 顶层表单权限门控（静态创建表单） ----------------

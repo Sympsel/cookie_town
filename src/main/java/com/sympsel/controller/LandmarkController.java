@@ -1,15 +1,14 @@
 package com.sympsel.controller;
 
-import com.sympsel.dto.LandmarkRequest;
-import com.sympsel.dto.LandmarkResponse;
-import com.sympsel.dto.PageResponse;
-import com.sympsel.dto.UserResponse;
+import com.sympsel.dto.*;
+import com.sympsel.entitys.Comment;
 import com.sympsel.entitys.Landmark;
 import com.sympsel.entitys.enums.LandmarkStatus;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.entitys.metadatas.Coordinate;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
+import com.sympsel.service.CommentService;
 import com.sympsel.service.FileStorageService;
 import com.sympsel.service.LandmarkService;
 import com.sympsel.utils.PageUtil;
@@ -26,10 +25,12 @@ import java.util.List;
 public class LandmarkController {
     private final LandmarkService landmarkService;
     private final FileStorageService fileStorageService;
+    private final CommentService commentService;
 
-    public LandmarkController(LandmarkService landmarkService, FileStorageService fileStorageService) {
+    public LandmarkController(LandmarkService landmarkService, FileStorageService fileStorageService, CommentService commentService) {
         this.landmarkService = landmarkService;
         this.fileStorageService = fileStorageService;
+        this.commentService = commentService;
     }
 
     @PostMapping
@@ -151,5 +152,25 @@ public class LandmarkController {
     @GetMapping("/{uuid}/pictures")
     public List<String> pictures(@PathVariable String uuid) {
         return landmarkService.findPictures(uuid);
+    }
+
+    @GetMapping("/{uuid}/comments")
+    public List<CommentResponse> comments(@PathVariable String uuid) {
+        return landmarkService.findComments(uuid).stream().map(CommentResponse::from).toList();
+    }
+
+    /**
+     * 为地标发表根评论：复用 Comment 系统创建评论，再把评论 uuid 挂到地标评论列表。
+     * 回复仍走 POST /api/comments（parentUuid 指向根评论），与留言板一致。
+     */
+    @PostMapping("/{uuid}/comments")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<LandmarkResponse> addComment(@PathVariable String uuid, @RequestBody CommentRequest request) {
+        if (landmarkService.findByUuid(uuid).isEmpty()) {
+            throw new IllegalArgumentException("地标不存在: " + uuid);
+        }
+        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), null, request.score());
+        Landmark landmark = landmarkService.addCommentUuid(uuid, comment.getUuid());
+        return ResponseEntity.ok(LandmarkResponse.from(landmark));
     }
 }

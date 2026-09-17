@@ -1,6 +1,7 @@
 package com.sympsel.service;
 
 import com.sympsel.entitys.Comment;
+import com.sympsel.entitys.enums.Score;
 import com.sympsel.repository.CommentRepository;
 import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
@@ -21,7 +22,7 @@ public class CommentService {
     }
 
     @Transactional
-    public Comment create(String publisherUuid, String content, String parentUuid) {
+    public Comment create(String publisherUuid, String content, String parentUuid, Score score) {
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("评论内容不能为空");
         }
@@ -31,6 +32,7 @@ public class CommentService {
         comment.setPublisherUuid(publisherUuid);
         comment.setContent(content);
         comment.setParentUuid(parentUuid);
+        comment.setScore(score);
         comment.setCreateTime(now);
         comment.setUpdateTime(now);
         Comment saved = commentRepository.save(comment);

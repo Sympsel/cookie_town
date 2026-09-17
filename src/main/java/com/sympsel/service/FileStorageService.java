@@ -30,6 +30,14 @@ public class FileStorageService {
     }
 
     public String store(MultipartFile file, String relativeDir) {
+        return store(file, relativeDir, UuidUtil.generate());
+    }
+
+    /**
+     * 以固定文件名（baseName）保存图片，同名覆盖。用于头像等"每个主体仅一张"的场景，
+     * 如 store(file, "avatars", userUuid) -> /uploads/avatars/{userUuid}.{ext}。
+     */
+    public String store(MultipartFile file, String relativeDir, String baseName) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传文件不能为空");
         }
@@ -47,8 +55,10 @@ public class FileStorageService {
         }
 
         String ext = extensionOf(file.getOriginalFilename(), contentType);
-        String filename = UuidUtil.generate() + "." + ext;
-        Path target = targetDir.resolve(filename);
+        Path target = targetDir.resolve(baseName + "." + ext).normalize();
+        if (!target.startsWith(targetDir)) {
+            throw new IllegalArgumentException("非法的文件名");
+        }
         try {
             Files.createDirectories(targetDir);
             try (InputStream in = file.getInputStream()) {
@@ -60,6 +70,22 @@ public class FileStorageService {
         String relativeUrl = root.relativize(target).toString().replace('\\', '/');
         return "/uploads/" + relativeUrl;
     }
+
+    public void deleteByUrl(String url) {
+        if (url == null || !url.startsWith("/uploads/")) {
+            return;
+        }
+        Path target = root.resolve(url.substring("/uploads/".length())).normalize();
+        if (!target.startsWith(root)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException ignored) {
+            // 清理旧文件失败不应影响新头像保存
+        }
+    }
+
 
     private String extensionOf(String originalFilename, String contentType) {
         if (originalFilename != null) {

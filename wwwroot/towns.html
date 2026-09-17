@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>曲奇小镇 · 小镇</title>
-    <!-- 后续接入样式：<link rel="stylesheet" href="css/style.css"> -->
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="site-header">
@@ -28,7 +28,9 @@
         <details class="create-panel">
             <summary class="tile-action create-toggle">＋ 创建小镇</summary>
             <form class="tile-form" id="town-create-form" action="#" method="post"
-                  data-endpoint="/api/towns" data-method="POST">
+                  data-endpoint="/api/towns" data-method="POST"
+                  data-file-fields="pictureFiles"
+                  data-upload-endpoint="/api/towns/{uuid}/pictures/upload">
                 <div class="tile-field">
                     <label for="town-name">小镇名称</label>
                     <input id="town-name" name="name" type="text" required>
@@ -40,6 +42,10 @@
                 <div class="tile-field">
                     <label for="town-parent">父城镇 UUID（可选）</label>
                     <input id="town-parent" name="parentTownUuid" type="text" placeholder="留空表示顶级小镇">
+                </div>
+                <div class="tile-field">
+                    <label for="town-pictures">轮播图（可选，可多选）</label>
+                    <input id="town-pictures" name="pictureFiles" type="file" accept="image/*" multiple>
                 </div>
                 <div class="tile-actions">
                     <button class="tile-action" type="submit">创建</button>

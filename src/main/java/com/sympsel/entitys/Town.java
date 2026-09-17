@@ -43,5 +43,11 @@ public class Town {
     @Column(name = "child_town_uuid", length = 36)
     private List<String> childTownUuids = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "town_pictures", joinColumns = @JoinColumn(name = "town_uuid"))
+    @Column(name = "picture_url")
+    @OrderColumn(name = "picture_order")
+    private List<String> pictures = new ArrayList<>();
+
     private double score;
 }

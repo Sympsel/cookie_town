@@ -56,6 +56,12 @@ public class Landmark {
     @OrderColumn(name = "picture_order")
     private List<String> pictures = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "landmark_comments", joinColumns = @JoinColumn(name = "landmark_uuid"))
+    @Column(name = "comment_uuid", length = 36)
+    @OrderColumn(name = "comment_order")
+    private List<String> commentUuids = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private LandmarkType type;

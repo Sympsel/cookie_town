@@ -1,5 +1,6 @@
 package com.sympsel.entitys;
 
+import com.sympsel.entitys.enums.Score;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -32,6 +33,11 @@ public class Comment {
 
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    // 评分（可选）：评论不一定携带评分；地标评论用它聚合出地标总评分
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Score score;
 
     private long createTime;
     private long updateTime;

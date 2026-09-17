@@ -31,6 +31,9 @@ public class User {
     @Column(nullable = false, length = 20)
     private Permission permission;
 
+    @Column(length = 255)
+    private String avatar;
+
     @Column(nullable = false)
     private long createTime;
 

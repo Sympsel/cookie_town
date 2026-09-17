@@ -28,7 +28,7 @@ public class CommentController {
     @PostMapping
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<CommentResponse> create(@RequestBody CommentRequest request) {
-        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), request.parentUuid());
+        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), request.parentUuid(), request.score());
         return ResponseEntity.status(HttpStatus.CREATED).body(CommentResponse.from(comment));
     }
 
