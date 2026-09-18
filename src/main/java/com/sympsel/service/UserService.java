@@ -1,6 +1,7 @@
 package com.sympsel.service;
 
 import com.sympsel.dto.UserResponse;
+import com.sympsel.entitys.Town;
 import com.sympsel.entitys.User;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.repository.UserRepository;
@@ -10,11 +11,13 @@ import com.sympsel.security.UserContext;
 import com.sympsel.utils.UuidUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,14 +27,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     // 开发者标签名：拥有该标签的用户视为开发者，可修复其它玩家账户信息
-    // （标签由 config.json 的 developers 名单在启动时同步，见 JsonConfigBootstrap）
     private final String developerTag;
+    private final TownService townService;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
+                       TownService townService,
                        @Value("${app.developer-tag:开发者}") String developerTag) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.townService = townService;
         this.developerTag = developerTag;
     }
 
@@ -109,6 +114,38 @@ public class UserService {
     @Transactional(readOnly = true)
     public Page<User> findAll(Pageable pageable) {
         return userRepository.findAll(pageable);
+    }
+
+    /**
+     * 用户列表（带身份排序）：
+     * 主镇镇长 > 开发者（特权标签） > 普通管理员 > 成员 > 访客 > 黑名单（Marked）；
+     * 同档内保持原有的创建时间倒序。
+     * 社区量级数据，内存排序 + 手动分页即可；用户量大时再下沉到 SQL。
+     */
+    @Transactional(readOnly = true)
+    public Page<UserResponse> findAllDtoSorted(Pageable pageable) {
+        String mayorUuid = townService.findMain().map(Town::getOwnerUuid).orElse(null);
+        List<UserResponse> sorted = userRepository.findAll().stream()
+                .map(user -> UserResponse.from(user, List.copyOf(user.getTags())))
+                .sorted(Comparator
+                        .comparingInt((UserResponse r) -> roleRank(r, mayorUuid))
+                        .thenComparing(Comparator.comparingLong(UserResponse::createTime).reversed()))
+                .toList();
+        int from = (int) Math.min(pageable.getOffset(), sorted.size());
+        int to = Math.min(from + pageable.getPageSize(), sorted.size());
+        return new PageImpl<>(sorted.subList(from, to), pageable, sorted.size());
+    }
+
+    private int roleRank(UserResponse r, String mayorUuid) {
+        if (mayorUuid != null && mayorUuid.equals(r.uuid())) return 0; // 主镇镇长
+        if (developerTag != null && !developerTag.isBlank()
+                && r.tags().contains(developerTag)) return 1;          // 开发者
+        return switch (r.permission()) {
+            case Admin -> 2;   // 普通管理员
+            case Common -> 3;  // 成员
+            case Visitor -> 4; // 访客
+            case Marked -> 5;  // 黑名单
+        };
     }
 
     /**

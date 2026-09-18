@@ -778,11 +778,17 @@
     }
 
     // ---------------- 各模块交互磁贴构建器 ----------------
+    // 镇长显示：用户名 + uuid 组合；无主镇时显示“无”
+    function fmtOwner(ownerName, ownerUuid) {
+        if (!ownerUuid) return '无';
+        return ownerName ? ownerName + '（' + ownerUuid + '）' : ownerUuid;
+    }
+
     const TILE_BUILDERS = {
         '/api/towns': function (t) {
             const node = tile(t.uuid, [
                 ['名称', t.name], ['简介', t.description], ['评分', fmtScore(t.score)],
-                ['镇长', t.ownerUuid], ['创建', fmtTime(t.createTime)]
+                ['镇长', fmtOwner(t.ownerName, t.ownerUuid)], ['创建', fmtTime(t.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
             actions.appendChild(wrapInDetails('编辑', buildForm({
@@ -824,7 +830,7 @@
                 load: {endpoint: '/api/towns/' + t.uuid + '/children', render: townChip}
             }));
             node.appendChild(buildPanel({
-                title: '轮播图',
+                title: '图片',
                 load: {
                     endpoint: '/api/towns/' + t.uuid + '/pictures',
                     render: function (url) {
@@ -832,7 +838,7 @@
                     }
                 },
                 uploads: [{
-                    title: '上传轮播图',
+                    title: '上传图片',
                     endpoint: '/api/towns/' + t.uuid + '/pictures/upload',
                     label: '上传',
                     multiple: true,
@@ -1289,6 +1295,79 @@
         });
     }
 
+    // ---------------- 首页：主镇轮播图 + 简介 ----------------
+    async function initMainTown() {
+        const carousel = document.getElementById('main-town-carousel');
+        const intro = document.getElementById('main-town-intro');
+        if (!carousel || !intro) return; // 非首页没有这两个元素，直接跳过
+
+        let town;
+        try {
+            town = await apiFetch('/api/towns/main');
+        } catch (e) {
+            return; // 无主镇（404）或加载失败：两栏保持隐藏，优雅降级
+        }
+
+        // 简介栏
+        document.getElementById('main-town-description').textContent = town.description || '';
+        intro.hidden = false;
+
+        // 轮播栏：拿不到图片或图片为空就不显示
+        let urls = [];
+        try {
+            urls = await apiFetch('/api/towns/' + town.uuid + '/pictures') || [];
+        } catch (e) { /* 图片加载失败按无图处理 */ }
+        if (!urls.length) return;
+
+        carousel.hidden = false;
+        startCarousel(carousel, urls);
+    }
+
+    function startCarousel(root, urls) {
+        const viewport = root.querySelector('#carousel-viewport');
+        const dotsBox = root.querySelector('#carousel-dots');
+        let index = 0, timer = null;
+
+        urls.forEach(function (url, i) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = '主镇图片 ' + (i + 1);
+            img.className = 'carousel-slide';
+            viewport.appendChild(img);
+
+            const dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = 'carousel-dot';
+            dot.setAttribute('aria-label', '第 ' + (i + 1) + ' 张');
+            dot.addEventListener('click', function () { show(i); restart(); });
+            dotsBox.appendChild(dot);
+        });
+
+        function show(i) {
+            index = (i + urls.length) % urls.length;
+            viewport.style.transform = 'translateX(-' + index * 100 + '%)';
+            dotsBox.querySelectorAll('.carousel-dot').forEach(function (d, j) {
+                d.classList.toggle('active', j === index);
+            });
+        }
+
+        function restart() {
+            clearInterval(timer);
+            if (urls.length > 1) timer = setInterval(function () { show(index + 1); }, 5000);
+        }
+
+        root.querySelector('#carousel-prev').addEventListener('click', function () { show(index - 1); restart(); });
+        root.querySelector('#carousel-next').addEventListener('click', function () { show(index + 1); restart(); });
+
+        if (urls.length <= 1) { // 只有一张图时隐藏翻页按钮和指示点
+            root.querySelectorAll('.carousel-btn, .carousel-dots').forEach(function (n) {
+                n.style.display = 'none';
+            });
+        }
+        show(0);
+        restart();
+    }
+
     // ---------------- 初始化 ----------------
     async function init() {
         await refreshSession();
@@ -1296,6 +1375,7 @@
         document.querySelectorAll('form.tile-form').forEach(wireForm);
         document.querySelectorAll('form.tile-form').forEach(prefillSelfUuid);
         applyPermissionGating();
+        await initMainTown();
         loadAllLists();
     }
 

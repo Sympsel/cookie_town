@@ -65,11 +65,19 @@ public class DataSourceEnvironmentPostProcessor implements EnvironmentPostProces
             props.put("jwt.secret", config.getJwtSecret().trim());
         }
 
+        if (config.getMaxImageSize() > 0) {
+            props.put("spring.servlet.multipart.max-file-size", config.getMaxImageSize() + "MB");
+        }
+        if (config.getMaxRequestSize() > 0) {
+            props.put("spring.servlet.multipart.max-request-size", config.getMaxRequestSize() + "MB");
+        }
+
         environment.getPropertySources().addFirst(new MapPropertySource(PROPERTY_SOURCE_NAME, props));
-        log.info("已从 {} 注入数据源：{}@{}:{}/{}（clean-and-launch={}，jwt-secret={}）",
+        log.info("已从 {} 注入数据源：{}@{}:{}/{}（clean-and-launch={}，jwt-secret={}，图片上限={}MB/请求{}MB）",
                 path.toAbsolutePath(), mysql.getUser(), mysql.getHost(), mysql.getPort(),
                 mysql.getDatabase(), config.isCleanAndLaunch(),
-                isBlank(config.getJwtSecret()) ? "未配置(回退环境变量)" : "已配置");
+                isBlank(config.getJwtSecret()) ? "未配置(回退环境变量)" : "已配置",
+                config.getMaxImageSize(), config.getMaxRequestSize());
     }
 
     private static boolean isBlank(String s) {

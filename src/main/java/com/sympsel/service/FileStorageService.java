@@ -22,11 +22,12 @@ import java.util.Set;
 @Service
 public class FileStorageService {
     private static final Set<String> ALLOWED_EXT = Set.of("png", "jpg", "jpeg", "gif", "webp");
-    private static final long MAX_BYTES = 5L * 1024 * 1024; // 5MB，与 multipart 配置保持一致
     private final Path root;
+    private final long maxImageSizeMb;
 
-    public FileStorageService(@Value("${app.upload.dir:uploads}") String dir) {
+    public FileStorageService(@Value("${app.upload.dir:uploads}") String dir, @Value("${max-image-size:10}") long maxImageSizeMb) {
         this.root = Paths.get(dir).toAbsolutePath().normalize();
+        this.maxImageSizeMb = maxImageSizeMb * 1024 * 1024;
     }
 
     public String store(MultipartFile file, String relativeDir) {
@@ -41,8 +42,8 @@ public class FileStorageService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传文件不能为空");
         }
-        if (file.getSize() > MAX_BYTES) {
-            throw new IllegalArgumentException("图片大小不能超过 5MB");
+        if (file.getSize() > maxImageSizeMb * 1024 * 1024) {
+            throw new IllegalArgumentException("图片大小不能超过 " + maxImageSizeMb + "MB");
         }
         String contentType = file.getContentType();
         if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {

@@ -1,6 +1,7 @@
 package com.sympsel.security;
 
 import com.sympsel.entitys.enums.Permission;
+import com.sympsel.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,9 +23,11 @@ import java.nio.charset.StandardCharsets;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -61,6 +64,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         try {
             Claims claims = jwtService.parse(token);
+            if (!userRepository.existsById(claims.getSubject())) {
+                UserContext.clear();
+                return false;   // 走既有的 401 分支：未认证
+            }
             String permission = claims.get("permission", String.class);
             UserContext.set(new UserContext.CurrentUser(
                     claims.getSubject(),

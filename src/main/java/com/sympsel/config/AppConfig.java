@@ -46,6 +46,17 @@ public class AppConfig {
     private int pageSize = 20;
 
     /**
+     * 图片上传最大尺寸（MB）
+     */
+    @JsonProperty("max-image-size")
+    private int maxImageSize = 10;
+
+    /**
+     * 最大请求尺寸（MB）
+     */
+    private int maxRequestSize = 20;
+
+    /**
      * 开发模式开关。
      */
     @JsonProperty("develop-mode")

@@ -4,17 +4,17 @@ server:
 spring:
   application:
     name: cookie-town
-    servlet:
-      multipart:
-        max-file-size: 5MB
-        max-request-size: 20MB
+  servlet:
+    multipart:
+      max-file-size: ${max-image-size:10}MB
+      max-request-size: ${max-request-size:20}MB
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
     open-in-view: false
 
 # JWT 认证配置

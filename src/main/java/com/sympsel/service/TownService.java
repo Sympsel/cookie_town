@@ -2,6 +2,7 @@ package com.sympsel.service;
 
 import com.sympsel.entitys.Town;
 import com.sympsel.entitys.User;
+import com.sympsel.entitys.enums.Permission;
 import com.sympsel.repository.TownRepository;
 import com.sympsel.repository.UserRepository;
 import com.sympsel.security.PermissionGuard;
@@ -154,6 +155,14 @@ public class TownService {
             town.getMemberUuids().add(userUuid);
             town.setUpdateTime(System.currentTimeMillis());
         }
+        userRepository.findById(userUuid).ifPresent(
+                user -> {
+                    if (user.getPermission() == Permission.Visitor) {
+                        user.setPermission(Permission.Common);
+                        userRepository.save(user);
+                    }
+                }
+        );
         return townRepository.save(town);
     }
 
@@ -165,7 +174,7 @@ public class TownService {
         town.getMemberUuids().remove(userUuid);
         town.setUpdateTime(System.currentTimeMillis());
         return townRepository.save(town);
-}
+    }
 
     @Transactional
     public Town update(String uuid, String name, String description) {
@@ -195,6 +204,23 @@ public class TownService {
             });
         }
         townRepository.delete(town);
+    }
+
+    /**
+     * 批量解析 uuid -> 用户名
+     * 查不到的用户不会出现在结果中（调用方按 null 处理）。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, String> findNamesByUuids(Collection<String> uuids) {
+        List<String> valid = uuids.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (valid.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllByUuidIn(valid).stream()
+                .collect(Collectors.toMap(User::getUuid, User::getName));
     }
 
     @Transactional(readOnly = true)

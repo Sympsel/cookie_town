@@ -18,6 +18,19 @@
 </header>
 
 <main>
+    <!-- 主镇轮播图：无主镇或无图片时整栏隐藏（由 JS 控制） -->
+    <section class="main-town-carousel" id="main-town-carousel" hidden>
+        <div class="carousel-viewport" id="carousel-viewport"></div>
+        <button type="button" class="carousel-btn carousel-prev" id="carousel-prev" aria-label="上一张">‹</button>
+        <button type="button" class="carousel-btn carousel-next" id="carousel-next" aria-label="下一张">›</button>
+        <div class="carousel-dots" id="carousel-dots"></div>
+    </section>
+
+    <!-- 主镇简介：无主镇时整栏隐藏 -->
+    <section class="main-town-intro" id="main-town-intro" hidden>
+        <h2>简介</h2>
+        <p id="main-town-description"></p>
+    </section>
     <section class="module-nav">
         <h2>功能导航</h2>
         <!-- 磁贴式主导航：每个 tile 链接到一个模块页 -->
@@ -32,7 +45,7 @@
             </a>
             <a class="tile" href="notices.html">
                 <h3>公告</h3>
-                <p>站点公告（管理员发布）</p>
+                <p>站点公告</p>
             </a>
             <a class="tile" href="messageboards.html">
                 <h3>留言板</h3>

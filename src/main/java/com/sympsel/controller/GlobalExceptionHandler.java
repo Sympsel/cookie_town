@@ -4,6 +4,7 @@ import com.sympsel.security.ForbiddenException;
 import com.sympsel.security.UnauthorizedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,6 +18,8 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    @Value("${max-image-size:5}") private long maxImageMb;
+    @Value("${max-request-size:20}") private long maxRequestMb;
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
@@ -51,7 +54,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, String>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", "上传文件过大，请压缩后重试（单张不超过 5MB）"));
+                .body(Map.of("error", "图片过大：单张不超过 " + maxImageMb + "MB，单次请求总计不超过 " + maxRequestMb + "MB"));
     }
 
     @ExceptionHandler(Exception.class)

@@ -42,13 +42,11 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
-        // findAllDto 已在事务内映射为 UserResponse（含 tags），此处 identity 透传
-        return PageResponse.from(userService.findAllDto(pageable), Function.identity());
+        return PageResponse.from(userService.findAllDtoSorted(pageable), Function.identity());
     }
 
     @GetMapping("/{uuid}")
     public ResponseEntity<UserResponse> getByUuid(@PathVariable String uuid) {
-        // findDtoByUuid 已在事务内映射为 UserResponse（含 tags），供详情页展示
         return userService.findDtoByUuid(uuid)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
