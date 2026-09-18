@@ -2,6 +2,7 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+*.jar
 .kotlin
 
 ### IntelliJ IDEA ###
@@ -41,6 +42,9 @@ build/
 uploads/
 
 run-env/
+
+# 本机打包脚本 deploy/package.ps1 的产物（dist/ 已在上方忽略，上传 zip 包也忽略）
+/cookie-town-dist.zip
 
 # 外部配置（含管理员密码等敏感信息）不入库，仅保留 config.example.json 模板
 config/config.json

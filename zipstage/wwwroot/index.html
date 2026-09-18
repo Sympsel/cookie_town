@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>曲奇小镇 · 首页</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+    <h1 class="site-title">曲奇小镇</h1>
+    <nav class="auth-nav">
+        <!-- 登录状态区：后续由 JS 调用 GET /api/auth/me 填充 -->
+        <span id="session-status" class="session-status">未登录</span>
+        <a href="login.html">登录</a>
+        <a href="register.html">注册</a>
+    </nav>
+</header>
+
+<main>
+    <section class="module-nav">
+        <h2>功能导航</h2>
+        <!-- 磁贴式主导航：每个 tile 链接到一个模块页 -->
+        <div class="tile-grid">
+            <a class="tile" href="towns.html">
+                <h3>小镇</h3>
+                <p>浏览、创建与管理小镇</p>
+            </a>
+            <a class="tile" href="landmarks.html">
+                <h3>地标</h3>
+                <p>社区共建地标信息</p>
+            </a>
+            <a class="tile" href="notices.html">
+                <h3>公告</h3>
+                <p>站点公告（管理员发布）</p>
+            </a>
+            <a class="tile" href="messageboards.html">
+                <h3>留言板</h3>
+                <p>留言与评分</p>
+            </a>
+            <a class="tile" href="comments.html">
+                <h3>评论</h3>
+                <p>评论与回复</p>
+            </a>
+            <a class="tile" href="users.html">
+                <h3>用户</h3>
+                <p>用户列表与资料管理</p>
+            </a>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <p>曲奇小镇 · Minecraft 社区网站</p>
+</footer>
+<script src="js/app.js"></script>
+</body>
+</html>

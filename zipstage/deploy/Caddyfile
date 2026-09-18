@@ -1,0 +1,27 @@
+# Cookie Town 反向代理（Caddy 方案 · 推荐）
+# Caddy 会为下列域名自动申请并续期 Let's Encrypt 证书，无需手动 certbot。
+#
+# 前提：
+#   1) DNS：A 记录 cookie-town.cn 与 www.cookie-town.cn 均指向本服务器公网 IP
+#   2) 安全组/防火墙：放行 80 与 443（不要放行 8080、3306）
+#   3) 后端：cookie-town.service 监听 127.0.0.1:8080
+#
+# 安装位置：/etc/caddy/Caddyfile（覆盖默认内容），随后 systemctl restart caddy
+
+cookie-town.cn, www.cookie-town.cn {
+    encode zstd gzip
+
+    # 前端静态页与 /api 全部交给后端（后端已用 file:wwwroot/ 提供前端）
+    reverse_proxy 127.0.0.1:8080
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/cookie-town.log
+        format json
+    }
+}

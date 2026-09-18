@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>曲奇小镇 · 用户</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+    <h1 class="site-title"><a href="index.html">曲奇小镇</a></h1>
+    <nav class="auth-nav">
+        <span id="session-status" class="session-status">未登录</span>
+        <a href="index.html">返回首页</a>
+    </nav>
+</header>
+
+<main>
+    <section class="list-section">
+        <h2>用户列表</h2>
+        <!-- 列表占位：后续由 JS 调用 GET /api/users 渲染成磁贴 -->
+        <div class="tile-grid" id="user-list" data-endpoint="/api/users">
+            <p class="empty-hint">列表将在接入 JS 后加载。</p>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <details class="create-panel">
+            <summary class="tile-action create-toggle">创建用户</summary>
+            <form class="tile-form" id="user-update-form" action="#" method="post"
+                  data-endpoint="/api/users/{uuid}" data-method="PUT">
+                <div class="tile-field">
+                    <label for="user-uuid">用户 UUID</label>
+                    <input id="user-uuid" name="uuid" type="text" placeholder="后续由登录会话自动填入">
+                </div>
+                <div class="tile-field">
+                    <label for="user-name">用户名</label>
+                    <input id="user-name" name="name" type="text" minlength="3" maxlength="16">
+                </div>
+                <div class="tile-field">
+                    <label for="user-introduction">简介</label>
+                    <textarea id="user-introduction" name="introduction" rows="3"></textarea>
+                </div>
+                <div class="tile-actions">
+                    <button class="tile-action" type="submit">保存</button>
+                </div>
+                <p id="user-message" class="form-message" role="status"></p>
+            </form>
+        </details>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <p>曲奇小镇 · Minecraft 社区网站</p>
+</footer>
+<script src="js/app.js"></script>
+</body>
+</html>

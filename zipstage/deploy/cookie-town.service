@@ -1,0 +1,28 @@
+[Unit]
+Description=Cookie Town (Spring Boot 4.1.0 / JDK 25)
+Documentation=https://github.com/Sympsel/cookie_town
+After=network-online.target mysql.service mysqld.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 专用低权限系统账号（无登录 shell），创建命令见 deploy/部署指南.md
+User=cookietown
+Group=cookietown
+# 工作目录决定 file:wwwroot/、file:uploads/ 与 ./config 的解析位置，务必指向部署目录
+WorkingDirectory=/opt/cookie-town
+# 绝对路径的 JDK 25；若改用系统包安装的 java，可换成 /usr/bin/java
+# 内存按 ECS 规格调整（2GB 机器给 -Xmx512m 足够）；UTF-8 + 上海时区避免中文/时间问题
+ExecStart=/opt/jdk-25/bin/java -Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai -jar /opt/cookie-town/cookie-town.jar
+# 显式指定外部配置目录（默认即 WorkingDirectory/config，这里写死更稳妥）
+Environment=CONFIG_DIR=/opt/cookie-town/config
+# SIGTERM(143) 视为正常退出；异常退出自动重启
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+# 基础安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
