@@ -20,8 +20,8 @@ public record MessageBoardResponse(
         return new MessageBoardResponse(
                 messageBoard.getUuid(),
                 messageBoard.getPublisherUuid(),
-                messageBoard.getContent(),
                 publisherName,
+                messageBoard.getContent(),
                 messageBoard.getScore(),
                 messageBoard.getCreateTime(),
                 messageBoard.getUpdateTime()
