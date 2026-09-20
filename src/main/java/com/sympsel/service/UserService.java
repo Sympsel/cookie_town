@@ -316,8 +316,6 @@ public class UserService {
 
     /**
      * 根据 UUID 列表查询用户名列表，如果用户已注销则不会出现在结果集中
-     * @param uuids
-     * @return
      */
     @Transactional(readOnly = true)
     public Map<String, String> findNamesByUuidIn(Collection<String> uuids) {

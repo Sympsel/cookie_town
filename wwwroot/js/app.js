@@ -753,7 +753,9 @@
     }
 
     function commentChip(c) {
-        return tile(c.uuid, [['内容', c.content], ['发布者', c.publisherUuid], ['UUID', c.uuid]]);
+        return tile(c.uuid, [['内容', c.content],
+            ['发布者', fmtOwnerNoUuid(c.publisherName, c.publisherUuid)],
+            ['UUID', c.uuid]]);
     }
 
     // 图片行：缩略图 + URL + 移除按钮（移除走 DELETE /pictures?url=）
@@ -994,7 +996,11 @@
         },
 
         '/api/notices': function (n) {
-            const node = tile(n.uuid, [['标题', n.title], ['内容', n.content], ['发布', fmtTime(n.publishTime)]]);
+            const node = tile(n.uuid, [
+                ['标题', n.title], ['内容', n.content],
+                ['发布', fmtTime(n.publishTime)],
+                ['发布者', fmtOwnerNoUuid(n.publisherName, n.publisherUuid)]
+            ]);
             const actions = el('div', 'tile-actions');
             actions.appendChild(wrapInDetails('编辑', buildForm({
                 title: '编辑',
@@ -1014,8 +1020,10 @@
 
         '/api/message-boards': function (m) {
             const node = tile(m.uuid, [
-                ['内容', m.content], ['评分', scoreLabel(m.score)],
-                ['留言者', m.publisherUuid], ['时间', fmtTime(m.createTime)]
+                ['内容', m.content],
+                ['评分', scoreLabel(m.score)],
+                ['留言者', fmtOwnerNoUuid(m.publisherName, m.publisherUuid)],
+                ['时间', fmtTime(m.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
             actions.appendChild(wrapInDetails('编辑', buildForm({
@@ -1040,8 +1048,10 @@
 
         '/api/comments': function (c) {
             const node = tile(c.uuid, [
-                ['内容', c.content], ['评分', scoreLabel(c.score)], ['发布者', c.publisherUuid],
-                ['父评论', c.parentUuid || '—'], ['时间', fmtTime(c.createTime)]
+                ['内容', c.content], ['评分', scoreLabel(c.score)],
+                ['发布者', fmtOwnerNoUuid(c.publisherName, c.publisherUuid)],
+                ['父评论', c.parentUuid || '—'],
+                ['时间', fmtTime(c.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
             actions.appendChild(wrapInDetails('编辑', buildForm({
