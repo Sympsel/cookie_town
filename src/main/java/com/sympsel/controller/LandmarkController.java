@@ -11,6 +11,7 @@ import com.sympsel.security.UserContext;
 import com.sympsel.service.CommentService;
 import com.sympsel.service.FileStorageService;
 import com.sympsel.service.LandmarkService;
+import com.sympsel.service.UserService;
 import com.sympsel.utils.PageUtil;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/landmarks")
@@ -26,18 +28,32 @@ public class LandmarkController {
     private final LandmarkService landmarkService;
     private final FileStorageService fileStorageService;
     private final CommentService commentService;
+    private final UserService userService;
 
-    public LandmarkController(LandmarkService landmarkService, FileStorageService fileStorageService, CommentService commentService) {
+    public LandmarkController(LandmarkService landmarkService, FileStorageService fileStorageService, CommentService commentService, UserService userService) {
         this.landmarkService = landmarkService;
         this.fileStorageService = fileStorageService;
         this.commentService = commentService;
+        this.userService = userService;
     }
 
     @PostMapping
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> create(@RequestBody LandmarkRequest request) {
         Landmark landmark = landmarkService.create(UserContext.currentUuid(), request.name(), request.type(), request.description(), request.pictures());
-        return ResponseEntity.status(HttpStatus.CREATED).body(LandmarkResponse.from(landmark));
+        return ResponseEntity.status(HttpStatus.CREATED).body(resp(landmark));
+    }
+
+    private LandmarkResponse resp(Landmark landmark) {
+        String submitterName = landmark.getSubmitterUuid() == null
+                ? null
+                : userService.findNamesByUuidIn(
+                        List.of(landmark.getSubmitterUuid())).get(landmark.getSubmitterUuid());
+        return LandmarkResponse.from(landmark, submitterName);
+    }
+
+    private Map<String, String> submitterNames(List<Landmark> landmarks) {
+        return userService.findNamesByUuidIn(landmarks.stream().map(Landmark::getSubmitterUuid).distinct().toList());
     }
 
     @GetMapping
@@ -45,33 +61,33 @@ public class LandmarkController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) Integer size) {
         Pageable pageable = PageUtil.desc(page, size, "createTime");
-        return PageResponse.from(landmarkService.findAll(pageable), LandmarkResponse::from);
+        return PageResponse.from(landmarkService.findAll(pageable), this::resp);
     }
 
     @GetMapping("/{uuid}")
     public ResponseEntity<LandmarkResponse> getByUuid(@PathVariable String uuid) {
         return landmarkService.findByUuid(uuid)
-                .map(landmark -> ResponseEntity.ok(LandmarkResponse.from(landmark)))
+                .map(landmark -> ResponseEntity.ok(resp(landmark)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{uuid}/children")
     public List<LandmarkResponse> children(@PathVariable String uuid) {
-        return landmarkService.findChildren(uuid).stream().map(LandmarkResponse::from).toList();
+        return landmarkService.findChildren(uuid).stream().map(this::resp).toList();
     }
 
     @PutMapping("/{uuid}/status")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> updateStatus(@PathVariable String uuid, @RequestParam LandmarkStatus status) {
         Landmark landmark = landmarkService.updateStatus(uuid, status);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @PutMapping("/{uuid}")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> update(@PathVariable String uuid, @RequestBody LandmarkRequest request) {
         Landmark landmark = landmarkService.update(uuid, request.name(), request.type(), request.description());
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @DeleteMapping("/{uuid}")
@@ -85,14 +101,14 @@ public class LandmarkController {
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> addBuilder(@PathVariable String uuid, @PathVariable String userUuid) {
         Landmark landmark = landmarkService.addBuilder(uuid, userUuid);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @DeleteMapping("/{uuid}/builders/{userUuid}")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> removeBuilder(@PathVariable String uuid, @PathVariable String userUuid) {
         Landmark landmark = landmarkService.removeBuilder(uuid, userUuid);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @GetMapping("/{uuid}/builders")
@@ -104,14 +120,14 @@ public class LandmarkController {
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> addCoordinate(@PathVariable String uuid, @RequestBody Coordinate coordinate) {
         Landmark landmark = landmarkService.addCoordinate(uuid, coordinate);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @DeleteMapping("/{uuid}/coordinates")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> removeCoordinate(@PathVariable String uuid, @RequestBody Coordinate coordinate) {
         Landmark landmark = landmarkService.removeCoordinate(uuid, coordinate);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @GetMapping("/{uuid}/coordinates")
@@ -123,7 +139,7 @@ public class LandmarkController {
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> addPicture(@PathVariable String uuid, @RequestParam String url) {
         Landmark landmark = landmarkService.addPicture(uuid, url);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     /**
@@ -139,14 +155,14 @@ public class LandmarkController {
         }
         String url = fileStorageService.store(file, "landmarks/" + uuid);
         Landmark landmark = landmarkService.addPicture(uuid, url);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @DeleteMapping("/{uuid}/pictures")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<LandmarkResponse> removePicture(@PathVariable String uuid, @RequestParam String url) {
         Landmark landmark = landmarkService.removePicture(uuid, url);
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 
     @GetMapping("/{uuid}/pictures")
@@ -171,6 +187,6 @@ public class LandmarkController {
         }
         Comment comment = commentService.create(UserContext.currentUuid(), request.content(), null, request.score());
         Landmark landmark = landmarkService.addCommentUuid(uuid, comment.getUuid());
-        return ResponseEntity.ok(LandmarkResponse.from(landmark));
+        return ResponseEntity.ok(resp(landmark));
     }
 }

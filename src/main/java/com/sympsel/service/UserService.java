@@ -17,10 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -314,5 +312,19 @@ public class UserService {
         user.setPermission(Permission.Admin);
         user.setCreateTime(System.currentTimeMillis());
         userRepository.save(user);
+    }
+
+    /**
+     * 根据 UUID 列表查询用户名列表，如果用户已注销则不会出现在结果集中
+     * @param uuids
+     * @return
+     */
+    @Transactional(readOnly = true)
+    public Map<String, String> findNamesByUuidIn(Collection<String> uuids) {
+        List<String> valid = uuids.stream().filter(Objects::nonNull).distinct().toList();
+        if (valid.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllByUuidIn(valid).stream().collect(Collectors.toMap(User::getUuid, User::getName));
     }
 }

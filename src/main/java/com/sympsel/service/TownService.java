@@ -206,23 +206,6 @@ public class TownService {
         townRepository.delete(town);
     }
 
-    /**
-     * 批量解析 uuid -> 用户名
-     * 查不到的用户不会出现在结果中（调用方按 null 处理）。
-     */
-    @Transactional(readOnly = true)
-    public Map<String, String> findNamesByUuids(Collection<String> uuids) {
-        List<String> valid = uuids.stream()
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (valid.isEmpty()) {
-            return Map.of();
-        }
-        return userRepository.findAllByUuidIn(valid).stream()
-                .collect(Collectors.toMap(User::getUuid, User::getName));
-    }
-
     @Transactional(readOnly = true)
     public List<User> findMembers(String uuid) {
         Town town = townRepository.findById(uuid).orElseThrow(

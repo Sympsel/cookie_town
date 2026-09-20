@@ -7,6 +7,7 @@ import com.sympsel.entitys.enums.LandmarkType;
 public record LandmarkResponse(
         String uuid,
         String submitterUuid,
+        String submitterName,
         String parentUuid,
         String name,
         String description,
@@ -16,10 +17,11 @@ public record LandmarkResponse(
         long createTime,
         long updateTime
 ) {
-    public static LandmarkResponse from(Landmark landmark) {
+    public static LandmarkResponse from(Landmark landmark, String submitterName) {
         return new LandmarkResponse(
                 landmark.getUuid(),
                 landmark.getSubmitterUuid(),
+                submitterName,
                 landmark.getParentUuid(),
                 landmark.getName(),
                 landmark.getDescription(),

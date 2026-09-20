@@ -10,6 +10,7 @@ import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.FileStorageService;
 import com.sympsel.service.TownService;
+import com.sympsel.service.UserService;
 import com.sympsel.utils.PageUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,10 +26,12 @@ import java.util.Map;
 @RequestMapping("/api/towns")
 public class TownController {
     private final TownService townService;
+    private final UserService userService;
     private final FileStorageService fileStorageService;
 
-    public TownController(TownService townService, FileStorageService fileStorageService) {
+    public TownController(TownService townService, UserService userService, FileStorageService fileStorageService) {
         this.townService = townService;
+        this.userService = userService;
         this.fileStorageService = fileStorageService;
     }
 
@@ -36,13 +39,13 @@ public class TownController {
     private TownResponse resp(Town town) {
         String ownerName = town.getOwnerUuid() == null
                 ? null
-                : townService.findNamesByUuids(List.of(town.getOwnerUuid())).get(town.getOwnerUuid());
+                : userService.findNamesByUuidIn(List.of(town.getOwnerUuid())).get(town.getOwnerUuid());
         return TownResponse.from(town, ownerName);
     }
 
     /** 批量组装：一次查询解析所有镇长用户名，避免逐条 N+1。 */
     private Map<String, String> ownerNames(List<Town> towns) {
-        return townService.findNamesByUuids(towns.stream().map(Town::getOwnerUuid).toList());
+        return userService.findNamesByUuidIn(towns.stream().map(Town::getOwnerUuid).toList());
     }
 
     @PostMapping

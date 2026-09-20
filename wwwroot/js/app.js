@@ -784,11 +784,17 @@
         return ownerName ? ownerName + '（' + ownerUuid + '）' : ownerUuid;
     }
 
+    function fmtOwnerNoUuid(ownerName, ownerUuid) {
+        if (!ownerUuid) return '无';
+        return ownerName ? ownerName : ownerUuid + '（已注销）';
+    }
+
     const TILE_BUILDERS = {
         '/api/towns': function (t) {
             const node = tile(t.uuid, [
                 ['名称', t.name], ['简介', t.description], ['评分', fmtScore(t.score)],
-                ['镇长', fmtOwner(t.ownerName, t.ownerUuid)], ['创建', fmtTime(t.createTime)]
+                ['镇长', fmtOwnerNoUuid(t.ownerName, t.ownerUuid)],
+                ['创建', fmtTime(t.createTime)]
             ]);
             const actions = el('div', 'tile-actions');
             actions.appendChild(wrapInDetails('编辑', buildForm({
@@ -851,7 +857,8 @@
         '/api/landmarks': function (l) {
             const node = tile(l.uuid, [
                 ['地标', l.name], ['类型', l.type], ['状态', l.status],
-                ['简介', l.description], ['评分', fmtScore(l.score)], ['提交者', l.submitterUuid]
+                ['简介', l.description], ['评分', fmtScore(l.score)],
+                ['提交者', fmtOwnerNoUuid(l.submitterName, l.submitterUuid)]
             ]);
             const actions = el('div', 'tile-actions');
             const detail = el('a', 'tile-action tile-detail-link', '详情页');
@@ -1316,7 +1323,8 @@
         let urls = [];
         try {
             urls = await apiFetch('/api/towns/' + town.uuid + '/pictures') || [];
-        } catch (e) { /* 图片加载失败按无图处理 */ }
+        } catch (e) { /* 图片加载失败按无图处理 */
+        }
         if (!urls.length) return;
 
         carousel.hidden = false;
@@ -1339,7 +1347,10 @@
             dot.type = 'button';
             dot.className = 'carousel-dot';
             dot.setAttribute('aria-label', '第 ' + (i + 1) + ' 张');
-            dot.addEventListener('click', function () { show(i); restart(); });
+            dot.addEventListener('click', function () {
+                show(i);
+                restart();
+            });
             dotsBox.appendChild(dot);
         });
 
@@ -1353,11 +1364,19 @@
 
         function restart() {
             clearInterval(timer);
-            if (urls.length > 1) timer = setInterval(function () { show(index + 1); }, 5000);
+            if (urls.length > 1) timer = setInterval(function () {
+                show(index + 1);
+            }, 5000);
         }
 
-        root.querySelector('#carousel-prev').addEventListener('click', function () { show(index - 1); restart(); });
-        root.querySelector('#carousel-next').addEventListener('click', function () { show(index + 1); restart(); });
+        root.querySelector('#carousel-prev').addEventListener('click', function () {
+            show(index - 1);
+            restart();
+        });
+        root.querySelector('#carousel-next').addEventListener('click', function () {
+            show(index + 1);
+            restart();
+        });
 
         if (urls.length <= 1) { // 只有一张图时隐藏翻页按钮和指示点
             root.querySelectorAll('.carousel-btn, .carousel-dots').forEach(function (n) {
