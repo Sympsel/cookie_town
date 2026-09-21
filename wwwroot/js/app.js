@@ -678,11 +678,14 @@
         try {
             const data = await apiFetch(p.load.endpoint);
             box.textContent = '';
-            if (!Array.isArray(data) || data.length === 0) {
+            const items = Array.isArray(data)
+                ? data
+                : (data && Array.isArray(data.content) ? data.content: []);
+            if (items.length === 0) {
                 box.appendChild(el('p', 'empty-hint', '暂无数据。'));
                 return;
             }
-            data.forEach(function (item) {
+            items.forEach(function (item) {
                 box.appendChild(p.load.render(item));
             });
         } catch (e) {
@@ -780,7 +783,6 @@
     }
 
     // ---------------- 各模块交互磁贴构建器 ----------------
-    // 镇长显示：用户名 + uuid 组合；无主镇时显示“无”
     function fmtOwner(ownerName, ownerUuid) {
         if (!ownerUuid) return '无';
         return ownerName ? ownerName + '（' + ownerUuid + '）' : ownerUuid;
@@ -789,6 +791,257 @@
     function fmtOwnerNoUuid(ownerName, ownerUuid) {
         if (!ownerUuid) return '无';
         return ownerName ? ownerName : ownerUuid + '（已注销）';
+    }
+
+    function commentRow(c, rootUuid, onChanged) {
+        const row = el('div', 'comment-item');
+        const head = el('div', 'comment-head');
+        head.appendChild(el('span', 'comment-author', fmtOwnerNoUuid(c.publisherName, c.publisherUuid)));
+        if (c.replyToName) {
+            head.appendChild(el('span', 'comment-replyto', '回复 @' + c.replyToName));
+        }
+        if (c.score) head.appendChild(el('span', 'comment-score', scoreLabel(c.score)));
+        head.appendChild(el('span', 'comment-time', fmtTime(c.createTime)));
+        row.appendChild(head);
+        row.appendChild(el('div', 'comment-content', c.content));
+
+        const actions = el('div', 'comment-actions');
+        const slot = el('div', 'reply-slot');
+        const replyBtn = el('button', 'tile-action', '回复');
+        replyBtn.type = 'button';
+        replyBtn.addEventListener('click', function () {
+            slot.textContent = '';
+            // 回复根评论时 replyToUuid=null；回复某条回复时传该回复 uuid（显示 @xxx）
+            slot.appendChild(buildReplyForm(rootUuid, c.uuid === rootUuid ? null : c.uuid, onChanged));
+        });
+        actions.appendChild(replyBtn);
+        actions.appendChild(wrapInDetails('编辑', buildForm({
+            title: '编辑', endpoint: '/api/comments/' + c.uuid, method: 'PUT',
+            submitLabel: '保存', requirePermission: 'Common',
+            fields: [{name: 'content', label: '内容', value: c.content, type: 'textarea', required: true}]
+        })));
+        actions.appendChild(buildDeleteButton('/api/comments/' + c.uuid, '删除', 'Common'));
+        row.appendChild(actions);
+        row.appendChild(slot);
+        return row;
+    }
+
+    function buildReplyForm(rootUuid, replyToUuid, onDone) {
+        const form = el('form', 'reply-form');
+        const input = document.createElement('textarea');
+        input.required = true;
+        input.rows = 2;
+        input.placeholder = replyToUuid ? '回复该条评论…' : '回复…';
+        const btn = el('button', 'tile-action', '发送');
+        btn.type = 'submit';
+        form.appendChild(input);
+        form.appendChild(btn);
+        form.addEventListener('submit', async function (ev) {
+            ev.preventDefault();
+            try {
+                await apiFetch('/api/comments', {
+                    method: 'POST',
+                    body: {content: input.value, parentUuid: rootUuid, replyToUuid: replyToUuid}
+                });
+                input.value = '';
+                form.remove();
+                onDone();
+            } catch (e) {
+                alert('回复失败：' + e.message);
+            }
+        });
+        return form;
+    }
+
+    /** 完整评论块：根评论 + 自动展开的回复区 */
+    function commentBlock(c) {
+        const block = el('div', 'comment-block');
+        const toggle = el('button', 'tile-action reply-toggle');
+        toggle.type = 'button';
+        toggle.style.display = 'none';
+        const repliesBox = el('div', 'comment-replies');
+        repliesBox.style.display = 'none';
+        let expanded = false;
+        let lastCount = 0;
+
+        function renderToggle() {
+            if (lastCount === 0) {
+                toggle.style.display = 'none';
+                return;
+            }
+            toggle.style.display = '';
+            toggle.textContent = expanded ? '收起回复' : '共 ' + lastCount + ' 条回复，点击查看';
+        }
+
+        async function refresh() {
+            repliesBox.textContent = '';
+            try {
+                const replies = await apiFetch('/api/comments/' + c.uuid + '/replies') || [];
+                lastCount = replies.length;
+                if (lastCount === 0) expanded = false;
+                replies.forEach(function (r) {
+                    // 回复提交成功后自动展开，让用户看到自己的新回复
+                    repliesBox.appendChild(commentRow(r, c.uuid, function () { expanded = true; refresh(); }));
+                });
+            } catch (e) {
+                lastCount = 0;
+                expanded = true;   // 错误提示要露出来
+                repliesBox.appendChild(el('p', 'empty-hint error', '回复加载失败：' + e.message));
+            }
+            repliesBox.style.display = expanded ? '' : 'none';
+            renderToggle();
+        }
+
+        toggle.addEventListener('click', function () {
+            expanded = !expanded;
+            repliesBox.style.display = expanded ? '' : 'none';
+            renderToggle();
+        });
+
+        block.appendChild(commentRow(c, c.uuid, function () { expanded = true; refresh(); }));
+        block.appendChild(toggle);
+        block.appendChild(repliesBox);
+        refresh();
+        return block;
+    }
+
+    function landmarkDetailView(l) {
+        const node = tile(l.uuid, [
+            ['地标', l.name], ['类型', l.type], ['状态', l.status],
+            ['简介', l.description], ['评分', fmtScore(l.score)],
+            ['提交者', fmtOwnerNoUuid(l.submitterName, l.submitterUuid)]
+        ]);
+        const actions = el('div', 'tile-actions');
+        const detail = el('a', 'tile-action tile-detail-link', '详情页');
+        detail.href = 'landmark.html?uuid=' + encodeURIComponent(l.uuid);
+        actions.appendChild(detail);
+        actions.appendChild(wrapInDetails('编辑', buildForm({
+            title: '编辑',
+            endpoint: '/api/landmarks/' + l.uuid,
+            method: 'PUT',
+            submitLabel: '保存',
+            requirePermission: 'Common',
+            fields: [
+                {name: 'name', label: '地标名', value: l.name, type: 'text', required: true},
+                {name: 'type', label: '类型', value: l.type, type: 'select', options: LANDMARK_TYPES},
+                {name: 'description', label: '简介', value: l.description, type: 'textarea'}
+            ]
+        })));
+        actions.appendChild(wrapInDetails('改状态', buildForm({
+            title: '改状态',
+            endpoint: '/api/landmarks/' + l.uuid + '/status',
+            method: 'PUT',
+            submitLabel: '更新状态',
+            requirePermission: 'Common',
+            query: ['status'],
+            fields: [{name: 'status', label: '状态', value: l.status, type: 'select', options: LANDMARK_STATUS}]
+        })));
+        actions.appendChild(buildDeleteButton('/api/landmarks/' + l.uuid, '删除', 'Common'));
+        node.appendChild(actions);
+
+        const coordFields = [
+            {name: 'x', label: 'X', type: 'text', required: true},
+            {name: 'y', label: 'Y', type: 'text', required: true},
+            {name: 'z', label: 'Z', type: 'text', required: true},
+            {
+                name: 'level',
+                label: '维度',
+                value: 0,
+                type: 'text',
+                required: true,
+                hint: '-1 下界 / 0 主世界 / 1 末地'
+            }
+        ];
+        node.appendChild(buildPanel({
+            title: '建造者', load: {endpoint: '/api/landmarks/' + l.uuid + '/builders', render: userChip},
+            forms: [
+                {
+                    title: '添加建造者',
+                    endpoint: '/api/landmarks/' + l.uuid + '/builders/{userUuid}',
+                    method: 'POST',
+                    submitLabel: '添加',
+                    requirePermission: 'Common',
+                    fields: [{name: 'userUuid', label: '用户 UUID', type: 'text', required: true}]
+                },
+                {
+                    title: '移除建造者',
+                    endpoint: '/api/landmarks/' + l.uuid + '/builders/{userUuid}',
+                    method: 'DELETE',
+                    submitLabel: '移除',
+                    requirePermission: 'Common',
+                    fields: [{name: 'userUuid', label: '用户 UUID', type: 'text', required: true}]
+                }
+            ]
+        }));
+        node.appendChild(buildPanel({
+            title: '坐标', load: {endpoint: '/api/landmarks/' + l.uuid + '/coordinates', render: coordRow},
+            forms: [
+                {
+                    title: '添加坐标',
+                    endpoint: '/api/landmarks/' + l.uuid + '/coordinates',
+                    method: 'POST',
+                    submitLabel: '添加',
+                    requirePermission: 'Common',
+                    numbers: ['x', 'y', 'z', 'level'],
+                    fields: coordFields
+                },
+                {
+                    title: '移除坐标',
+                    endpoint: '/api/landmarks/' + l.uuid + '/coordinates',
+                    method: 'DELETE',
+                    submitLabel: '移除',
+                    requirePermission: 'Common',
+                    numbers: ['x', 'y', 'z', 'level'],
+                    fields: coordFields
+                }
+            ]
+        }));
+        node.appendChild(buildPanel({
+            title: '图片',
+            load: {
+                endpoint: '/api/landmarks/' + l.uuid + '/pictures',
+                render: function (url) {
+                    return pictureRow(url, l.uuid);
+                }
+            },
+            uploads: [{
+                title: '上传图片',
+                endpoint: '/api/landmarks/' + l.uuid + '/pictures/upload',
+                label: '上传',
+                multiple: true,
+                requirePermission: 'Common'
+            }]
+        }));
+        node.appendChild(buildPanel({
+            title: '子地标',
+            load: {endpoint: '/api/landmarks/' + l.uuid + '/children', render: landmarkChip}
+        }));
+        node.appendChild(buildPanel({
+            title: '评论',
+            load: {
+                endpoint: '/api/landmarks/' + l.uuid + '/comments',
+                render: function (c) {
+                    return TILE_BUILDERS['/api/comments'](c);
+                }
+            },
+            forms: [{
+                title: '发表评论',
+                endpoint: '/api/landmarks/' + l.uuid + '/comments',
+                method: 'POST',
+                submitLabel: '发表',
+                requirePermission: 'Common',
+                fields: [
+                    {name: 'content', label: '评论内容', type: 'textarea', required: true},
+                    {
+                        name: 'score',
+                        label: '评分（可选）',
+                        type: 'select',
+                        options: [{value: '', label: '不评分'}].concat(SCORES)
+                    }
+                ]
+            }]
+        }));
+        return node;
     }
 
     const TILE_BUILDERS = {
@@ -853,145 +1106,38 @@
                     requirePermission: 'Common'
                 }]
             }));
+            node.appendChild(buildPanel({
+                title: '留言板',
+                load: {
+                    endpoint: '/api/towns/' + t.uuid + '/messages',
+                    render: function (m) { return TILE_BUILDERS['/api/message-boards'](m); }
+                },
+                forms: [{
+                    title: '发表留言',
+                    endpoint: '/api/towns/' + t.uuid + '/messages',
+                    method: 'POST',
+                    submitLabel: '发表',
+                    requirePermission: 'Common',
+                    fields: [{name: 'content', label: '内容', type: 'textarea', required: true}]
+                }]
+            }));
             return node;
         },
 
         '/api/landmarks': function (l) {
             const node = tile(l.uuid, [
-                ['地标', l.name], ['类型', l.type], ['状态', l.status],
+                ['地标', l.name], ['类型', typeLabel(l.type)], ['状态', statusLabel(l.status)],
                 ['简介', l.description], ['评分', fmtScore(l.score)],
-                ['提交者', fmtOwnerNoUuid(l.submitterName, l.submitterUuid)]
+                ['提交者', fmtOwnerNoUuid(l.submitterName, l.submitterUuid)],
+                ['建造者', (l.builderNames && l.builderNames.length) ? l.builderNames.join('、') : '—']
             ]);
             const actions = el('div', 'tile-actions');
-            const detail = el('a', 'tile-action tile-detail-link', '详情页');
+            const detail = document.createElement('a');
+            detail.className = 'tile-action';
             detail.href = 'landmark.html?uuid=' + encodeURIComponent(l.uuid);
+            detail.textContent = '详情';
             actions.appendChild(detail);
-            actions.appendChild(wrapInDetails('编辑', buildForm({
-                title: '编辑',
-                endpoint: '/api/landmarks/' + l.uuid,
-                method: 'PUT',
-                submitLabel: '保存',
-                requirePermission: 'Common',
-                fields: [
-                    {name: 'name', label: '地标名', value: l.name, type: 'text', required: true},
-                    {name: 'type', label: '类型', value: l.type, type: 'select', options: LANDMARK_TYPES},
-                    {name: 'description', label: '简介', value: l.description, type: 'textarea'}
-                ]
-            })));
-            actions.appendChild(wrapInDetails('改状态', buildForm({
-                title: '改状态',
-                endpoint: '/api/landmarks/' + l.uuid + '/status',
-                method: 'PUT',
-                submitLabel: '更新状态',
-                requirePermission: 'Common',
-                query: ['status'],
-                fields: [{name: 'status', label: '状态', value: l.status, type: 'select', options: LANDMARK_STATUS}]
-            })));
-            actions.appendChild(buildDeleteButton('/api/landmarks/' + l.uuid, '删除', 'Common'));
             node.appendChild(actions);
-
-            const coordFields = [
-                {name: 'x', label: 'X', type: 'text', required: true},
-                {name: 'y', label: 'Y', type: 'text', required: true},
-                {name: 'z', label: 'Z', type: 'text', required: true},
-                {
-                    name: 'level',
-                    label: '维度',
-                    value: 0,
-                    type: 'text',
-                    required: true,
-                    hint: '-1 下界 / 0 主世界 / 1 末地'
-                }
-            ];
-            node.appendChild(buildPanel({
-                title: '建造者', load: {endpoint: '/api/landmarks/' + l.uuid + '/builders', render: userChip},
-                forms: [
-                    {
-                        title: '添加建造者',
-                        endpoint: '/api/landmarks/' + l.uuid + '/builders/{userUuid}',
-                        method: 'POST',
-                        submitLabel: '添加',
-                        requirePermission: 'Common',
-                        fields: [{name: 'userUuid', label: '用户 UUID', type: 'text', required: true}]
-                    },
-                    {
-                        title: '移除建造者',
-                        endpoint: '/api/landmarks/' + l.uuid + '/builders/{userUuid}',
-                        method: 'DELETE',
-                        submitLabel: '移除',
-                        requirePermission: 'Common',
-                        fields: [{name: 'userUuid', label: '用户 UUID', type: 'text', required: true}]
-                    }
-                ]
-            }));
-            node.appendChild(buildPanel({
-                title: '坐标', load: {endpoint: '/api/landmarks/' + l.uuid + '/coordinates', render: coordRow},
-                forms: [
-                    {
-                        title: '添加坐标',
-                        endpoint: '/api/landmarks/' + l.uuid + '/coordinates',
-                        method: 'POST',
-                        submitLabel: '添加',
-                        requirePermission: 'Common',
-                        numbers: ['x', 'y', 'z', 'level'],
-                        fields: coordFields
-                    },
-                    {
-                        title: '移除坐标',
-                        endpoint: '/api/landmarks/' + l.uuid + '/coordinates',
-                        method: 'DELETE',
-                        submitLabel: '移除',
-                        requirePermission: 'Common',
-                        numbers: ['x', 'y', 'z', 'level'],
-                        fields: coordFields
-                    }
-                ]
-            }));
-            node.appendChild(buildPanel({
-                title: '图片',
-                load: {
-                    endpoint: '/api/landmarks/' + l.uuid + '/pictures',
-                    render: function (url) {
-                        return pictureRow(url, l.uuid);
-                    }
-                },
-                uploads: [{
-                    title: '上传图片',
-                    endpoint: '/api/landmarks/' + l.uuid + '/pictures/upload',
-                    label: '上传',
-                    multiple: true,
-                    requirePermission: 'Common'
-                }]
-            }));
-            node.appendChild(buildPanel({
-                title: '子地标',
-                load: {endpoint: '/api/landmarks/' + l.uuid + '/children', render: landmarkChip}
-            }));
-            node.appendChild(buildPanel({
-                title: '评论',
-                load: {
-                    endpoint: '/api/landmarks/' + l.uuid + '/comments',
-                    render: function (c) {
-                        return TILE_BUILDERS['/api/comments'](c);
-                    }
-                },
-                forms: [{
-                    title: '发表评论',
-                    endpoint: '/api/landmarks/' + l.uuid + '/comments',
-                    method: 'POST',
-                    submitLabel: '发表',
-                    requirePermission: 'Common',
-                    fields: [
-                        {name: 'content', label: '评论内容', type: 'textarea', required: true},
-                        {
-                            name: 'score',
-                            label: '评分（可选）',
-                            type: 'select',
-                            options: [{value: '', label: '不评分'}].concat(SCORES)
-                        }
-                    ]
-                }]
-            }));
             return node;
         },
 
@@ -1021,7 +1167,6 @@
         '/api/message-boards': function (m) {
             const node = tile(m.uuid, [
                 ['内容', m.content],
-                ['评分', scoreLabel(m.score)],
                 ['留言者', fmtOwnerNoUuid(m.publisherName, m.publisherUuid)],
                 ['时间', fmtTime(m.createTime)]
             ]);
@@ -1034,51 +1179,27 @@
                 requirePermission: 'Common',
                 fields: [
                     {name: 'content', label: '内容', value: m.content, type: 'textarea', required: true},
-                    {name: 'score', label: '评分', value: m.score, type: 'select', options: SCORES}
                 ]
             })));
             actions.appendChild(buildDeleteButton('/api/message-boards/' + m.uuid, '删除', 'Common'));
             node.appendChild(actions);
             node.appendChild(buildPanel({
                 title: '回复',
-                load: {endpoint: '/api/message-boards/' + m.uuid + '/replies', render: textRow}
+                load: {endpoint: '/api/message-boards/' + m.uuid + '/replies', render: commentBlock},
+                forms: [{
+                    title: '写回复',
+                    endpoint: '/api/message-boards/' + m.uuid + '/replies',
+                    method: 'POST',
+                    submitLabel: '发送',
+                    requirePermission: 'Common',
+                    fields: [{name: 'content', label: '内容', type: 'textarea', required: true}]
+                }]
             }));
             return node;
         },
 
         '/api/comments': function (c) {
-            const node = tile(c.uuid, [
-                ['内容', c.content], ['评分', scoreLabel(c.score)],
-                ['发布者', fmtOwnerNoUuid(c.publisherName, c.publisherUuid)],
-                ['父评论', c.parentUuid || '—'],
-                ['时间', fmtTime(c.createTime)]
-            ]);
-            const actions = el('div', 'tile-actions');
-            actions.appendChild(wrapInDetails('编辑', buildForm({
-                title: '编辑',
-                endpoint: '/api/comments/' + c.uuid,
-                method: 'PUT',
-                submitLabel: '保存',
-                requirePermission: 'Common',
-                fields: [{name: 'content', label: '内容', value: c.content, type: 'textarea', required: true}]
-            })));
-            actions.appendChild(buildDeleteButton('/api/comments/' + c.uuid, '删除', 'Common'));
-            node.appendChild(actions);
-            node.appendChild(buildPanel({
-                title: '回复', load: {endpoint: '/api/comments/' + c.uuid + '/replies', render: commentChip},
-                forms: [{
-                    title: '发表回复',
-                    endpoint: '/api/comments',
-                    method: 'POST',
-                    submitLabel: '回复',
-                    requirePermission: 'Common',
-                    fields: [
-                        {name: 'content', label: '回复内容', type: 'textarea', required: true},
-                        {name: 'parentUuid', value: c.uuid, type: 'hidden'}
-                    ]
-                }]
-            }));
-            return node;
+            return commentBlock(c);
         },
 
         '/api/users': function (u) {
@@ -1183,7 +1304,8 @@
     async function loadList(container, page) {
         const endpoint = container.dataset.endpoint;
         if (!endpoint) return;
-        const builder = TILE_BUILDERS[endpoint];
+        const builder = TILE_BUILDERS[endpoint]
+            || (/^\/api\/towns\/[^/]+\/messages$/.test(endpoint) ? TILE_BUILDERS['/api/message-boards'] : null);
         const targetPage = (page === undefined || page === null || page < 0) ? 0 : page;
         container.textContent = '';
         const listBox = el('div', 'tile-list-items');
@@ -1268,7 +1390,7 @@
         try {
             const l = await apiFetch('/api/landmarks/' + encodeURIComponent(uuid));
             box.textContent = '';
-            box.appendChild(TILE_BUILDERS['/api/landmarks'](l));
+            box.appendChild(landmarkDetailView(l));
         } catch (e) {
             box.textContent = '';
             box.appendChild(el('p', 'empty-hint error', '加载失败：' + e.message));
@@ -1397,6 +1519,13 @@
         restart();
     }
 
+    function enumLabel(options, v) {
+        const hit = options.filter(function (o) { return o.value === v; })[0];
+        return hit ? hit.label : String(v == null ? '' : v);
+    }
+    function typeLabel(v) { return enumLabel(LANDMARK_TYPES, v); }
+    function statusLabel(v) { return enumLabel(LANDMARK_STATUS, v); }
+
     // ---------------- 初始化 ----------------
     async function init() {
         await refreshSession();
@@ -1405,6 +1534,21 @@
         document.querySelectorAll('form.tile-form').forEach(prefillSelfUuid);
         applyPermissionGating();
         await initMainTown();
+        const mbList = document.getElementById('messageboard-list');
+        if (mbList) {
+            try {
+                const main = await apiFetch('/api/towns/main');
+                mbList.dataset.endpoint = '/api/towns/' + main.uuid + '/messages';
+                const form = document.getElementById('messageboard-create-form');
+                if (form) {
+                    form.dataset.endpoint = '/api/towns/' + main.uuid + '/messages';
+                    const scoreField = document.getElementById('messageboard-score');
+                    if (scoreField) scoreField.closest('.tile-field').remove();   // 留言不再评分
+                }
+            } catch (e) {
+                mbList.innerHTML = '<p class="empty-hint">主镇尚未配置，留言墙不可用。</p>';
+            }
+        }
         loadAllLists();
     }
 

@@ -45,11 +45,7 @@ public class LandmarkController {
     }
 
     private LandmarkResponse resp(Landmark landmark) {
-        String submitterName = landmark.getSubmitterUuid() == null
-                ? null
-                : userService.findNamesByUuidIn(
-                        List.of(landmark.getSubmitterUuid())).get(landmark.getSubmitterUuid());
-        return LandmarkResponse.from(landmark, submitterName);
+        return landmarkService.findDtoByUuid(landmark.getUuid()).orElseThrow();
     }
 
     private Map<String, String> submitterNames(List<Landmark> landmarks) {
@@ -66,9 +62,7 @@ public class LandmarkController {
 
     @GetMapping("/{uuid}")
     public ResponseEntity<LandmarkResponse> getByUuid(@PathVariable String uuid) {
-        return landmarkService.findByUuid(uuid)
-                .map(landmark -> ResponseEntity.ok(resp(landmark)))
-                .orElse(ResponseEntity.notFound().build());
+        return landmarkService.findDtoByUuid(uuid).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{uuid}/children")
@@ -185,7 +179,7 @@ public class LandmarkController {
         if (landmarkService.findByUuid(uuid).isEmpty()) {
             throw new IllegalArgumentException("地标不存在: " + uuid);
         }
-        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), null, request.score());
+        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), request.parentUuid(), request.replyToUuid(), request.score());
         Landmark landmark = landmarkService.addCommentUuid(uuid, comment.getUuid());
         return ResponseEntity.ok(resp(landmark));
     }

@@ -31,6 +31,9 @@ public class Comment {
     @OrderColumn(name = "reply_order")
     private List<String> replyUuids = new ArrayList<>();
 
+    @Column(length = 36)
+    private String replyToUuid;
+
     @Column(columnDefinition = "TEXT")
     private String content;
 

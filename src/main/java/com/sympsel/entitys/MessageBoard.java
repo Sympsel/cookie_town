@@ -23,9 +23,8 @@ public class MessageBoard {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private Score score;
+    @Column(length = 36)
+    private String townUuid;
 
     private long createTime;
     private long updateTime;

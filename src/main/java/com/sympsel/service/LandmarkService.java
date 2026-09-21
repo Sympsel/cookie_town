@@ -1,5 +1,6 @@
 package com.sympsel.service;
 
+import com.sympsel.dto.LandmarkResponse;
 import com.sympsel.entitys.Comment;
 import com.sympsel.entitys.Landmark;
 import com.sympsel.entitys.User;
@@ -24,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class LandmarkService {
@@ -195,6 +197,10 @@ public class LandmarkService {
                 landmarkRepository.save(parent);
             });
         }
+        for (String cid : List.copyOf(landmark.getCommentUuids())) {
+            commentRepository.deleteAll(commentRepository.findByParentUuidOrderByCreateTimeAsc(cid));
+            commentRepository.deleteById(cid);
+        }
         landmarkRepository.delete(landmark);
     }
 
@@ -275,5 +281,34 @@ public class LandmarkService {
                 .map(commentMap::get)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LandmarkResponse> findAllDto(Pageable pageable) {
+        Page<Landmark> page = landmarkRepository.findAll(pageable);
+        Map<String, String> names = resolveNames(page.getContent());
+        return page.map(l -> LandmarkResponse.from(l, names.get(l.getSubmitterUuid()), builderNamesOf(l, names)));
+    }
+
+    /** 详情组装（事务内） */
+    @Transactional(readOnly = true)
+    public Optional<LandmarkResponse> findDtoByUuid(String uuid) {
+        return landmarkRepository.findById(uuid).map(l -> {
+            Map<String, String> names = resolveNames(List.of(l));
+            return LandmarkResponse.from(l, names.get(l.getSubmitterUuid()), builderNamesOf(l, names));
+        });
+    }
+
+    private Map<String, String> resolveNames(List<Landmark> list) {
+        List<String> ids = list.stream()
+                .flatMap(l -> Stream.concat(Stream.of(l.getSubmitterUuid()), l.getBuilderUuids().stream()))
+                .filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        return userRepository.findAllByUuidIn(ids).stream()
+                .collect(Collectors.toMap(User::getUuid, User::getName));
+    }
+
+    private List<String> builderNamesOf(Landmark l, Map<String, String> names) {
+        return l.getBuilderUuids().stream().map(names::get).filter(Objects::nonNull).toList();
     }
 }

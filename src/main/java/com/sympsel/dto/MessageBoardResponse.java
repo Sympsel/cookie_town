@@ -7,8 +7,8 @@ public record MessageBoardResponse(
         String uuid,
         String publisherUuid,
         String publisherName,
+        String townUuid,
         String content,
-        Score score,
         long createTime,
         long updateTime
 ) {
@@ -21,8 +21,8 @@ public record MessageBoardResponse(
                 messageBoard.getUuid(),
                 messageBoard.getPublisherUuid(),
                 publisherName,
+                messageBoard.getTownUuid(),
                 messageBoard.getContent(),
-                messageBoard.getScore(),
                 messageBoard.getCreateTime(),
                 messageBoard.getUpdateTime()
         );

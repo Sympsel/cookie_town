@@ -1,14 +1,13 @@
 package com.sympsel.controller;
 
-import com.sympsel.dto.PageResponse;
-import com.sympsel.dto.TownRequest;
-import com.sympsel.dto.TownResponse;
-import com.sympsel.dto.UserResponse;
+import com.sympsel.dto.*;
+import com.sympsel.entitys.MessageBoard;
 import com.sympsel.entitys.Town;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
 import com.sympsel.service.FileStorageService;
+import com.sympsel.service.MessageBoardService;
 import com.sympsel.service.TownService;
 import com.sympsel.service.UserService;
 import com.sympsel.utils.PageUtil;
@@ -28,11 +27,13 @@ public class TownController {
     private final TownService townService;
     private final UserService userService;
     private final FileStorageService fileStorageService;
+    private final MessageBoardService messageBoardService;
 
-    public TownController(TownService townService, UserService userService, FileStorageService fileStorageService) {
+    public TownController(TownService townService, UserService userService, FileStorageService fileStorageService, MessageBoardService messageBoardService) {
         this.townService = townService;
         this.userService = userService;
         this.fileStorageService = fileStorageService;
+        this.messageBoardService = messageBoardService;
     }
 
     /** 组装单个小镇的响应：镇长字段附带解析出的用户名（解析不到则为 null）。 */
@@ -158,5 +159,34 @@ public class TownController {
     public ResponseEntity<TownResponse> removePicture(@PathVariable String uuid, @RequestParam String url) {
         Town town = townService.removePicture(uuid, url);
         return ResponseEntity.ok(resp(town));
+    }
+
+    @GetMapping("/{uuid}/messages")
+    public PageResponse<MessageBoardResponse> messages(
+            @PathVariable String uuid,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) Integer size
+    ) {
+        Pageable pageable = PageUtil.desc(page, size, "createTime");
+        Page<MessageBoard> page1 = messageBoardService.findByTown(uuid, pageable);
+        Map<String, String> names = userService.findNamesByUuidIn(
+                page1.getContent().stream().map(MessageBoard::getPublisherUuid).toList()
+        );
+        return PageResponse.from(page1,
+                m -> MessageBoardResponse.from(m, names.get(m.getPublisherUuid()))
+        );
+    }
+
+    /** 在镇墙发表留言（Common+） */
+    @PostMapping("/{uuid}/messages")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<MessageBoardResponse> postMessage(@PathVariable String uuid,
+                                                            @RequestBody MessageBoardRequest request) {
+        if (townService.findByUuid(uuid).isEmpty()) {
+            throw new IllegalArgumentException("小镇不存在: " + uuid);
+        }
+        MessageBoard m = messageBoardService.create(UserContext.currentUuid(), uuid, request.content());
+        String name = userService.findNamesByUuidIn(List.of(m.getPublisherUuid())).get(m.getPublisherUuid());
+        return ResponseEntity.status(HttpStatus.CREATED).body(MessageBoardResponse.from(m, name));
     }
 }

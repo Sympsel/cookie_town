@@ -2,6 +2,7 @@ package com.sympsel.service;
 
 import com.sympsel.entitys.MessageBoard;
 import com.sympsel.entitys.enums.Score;
+import com.sympsel.repository.CommentRepository;
 import com.sympsel.repository.MessageBoardRepository;
 import com.sympsel.security.PermissionGuard;
 import com.sympsel.utils.UuidUtil;
@@ -16,13 +17,20 @@ import java.util.Optional;
 @Service
 public class MessageBoardService {
     private final MessageBoardRepository messageBoardRepository;
+    private final CommentRepository commentRepository;
 
-    public MessageBoardService(MessageBoardRepository messageBoardRepository) {
+    public MessageBoardService(MessageBoardRepository messageBoardRepository, CommentRepository commentRepository) {
         this.messageBoardRepository = messageBoardRepository;
+        this.commentRepository = commentRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MessageBoard> findByTown(String townUuid, Pageable pageable) {
+        return messageBoardRepository.findByTownUuid(townUuid, pageable);
     }
 
     @Transactional
-    public MessageBoard create(String publisherUuid, String content, Score score) {
+    public MessageBoard create(String publisherUuid, String townUuid, String content) {
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("留言内容不能为空");
         }
@@ -30,8 +38,8 @@ public class MessageBoardService {
         MessageBoard messageBoard = new MessageBoard();
         messageBoard.setUuid(UuidUtil.generate());
         messageBoard.setPublisherUuid(publisherUuid);
+        messageBoard.setTownUuid(townUuid);
         messageBoard.setContent(content);
-        messageBoard.setScore(score);
         messageBoard.setCreateTime(now);
         messageBoard.setUpdateTime(now);
         return messageBoardRepository.save(messageBoard);
@@ -69,15 +77,12 @@ public class MessageBoardService {
     }
 
     @Transactional
-    public MessageBoard update(String uuid, String content, Score score) {
+    public MessageBoard update(String uuid, String content) {
         MessageBoard messageBoard = messageBoardRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("留言不存在: " + uuid));
         PermissionGuard.requireOwnerOrAdmin(messageBoard.getPublisherUuid());
         if (content != null && !content.isBlank()) {
             messageBoard.setContent(content);
-        }
-        if (score != null) {
-            messageBoard.setScore(score);
         }
         messageBoard.setUpdateTime(System.currentTimeMillis());
         return messageBoardRepository.save(messageBoard);
@@ -91,6 +96,10 @@ public class MessageBoardService {
             throw new IllegalArgumentException("留言不存在: " + uuid);
         }
         PermissionGuard.requireOwnerOrAdmin(messageBoard.getPublisherUuid());
+        for (String replyUuid : List.copyOf(messageBoard.getReplyCommentUuids())) {
+            commentRepository.deleteAll(commentRepository.findByParentUuidOrderByCreateTimeAsc(replyUuid));
+            commentRepository.deleteById(replyUuid);
+        }
         messageBoardRepository.deleteById(uuid);
     }
 

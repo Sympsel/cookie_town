@@ -873,3 +873,23 @@ main:has(.create-panel) { padding-bottom: 5.5rem; }
 
 /* 首页主镇简介 */
 .main-town-intro { margin-bottom: 24px; }
+
+.comment-block { border-top: 1px solid #e5e0d8; padding: 10px 0; }
+.comment-item { padding: 4px 0; }
+.comment-head { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: #8a8578; }
+.comment-author { font-weight: 600; color: #5b8def; }
+.comment-replyto { color: #b04a4a; }
+.comment-content { margin: 4px 0; white-space: pre-wrap; }
+.comment-actions { display: flex; gap: 8px; align-items: center; }
+.comment-replies { margin-left: 24px; border-left: 2px solid #ece7dd; padding-left: 12px; }
+.reply-form { display: flex; gap: 8px; margin: 6px 0; }
+.reply-form textarea { flex: 1; }
+
+.comment-replies {
+    margin-left: 24px;
+    padding-left: 12px;
+    border-left: 2px solid #e3e5e7;
+}
+.reply-toggle {
+    margin-top: 4px;
+}

@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,16 +23,42 @@ public class CommentService {
     }
 
     @Transactional
-    public Comment create(String publisherUuid, String content, String parentUuid, Score score) {
+    public Comment create(String publisherUuid, String content, String parentUuid, String replyToUuid, Score score) {
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("评论内容不能为空");
         }
+
+
+        if (parentUuid != null) {
+            Comment parent = commentRepository.findById(parentUuid)
+                    .orElseThrow(() -> new IllegalArgumentException("父评论不存在: " + parentUuid));
+            if (parent.getParentUuid() != null) {
+                throw new IllegalArgumentException("只能回复根评论（回复请挂到根评论下，并用 replyToUuid 指定回复对象）");
+            }
+        }
+
+        if (replyToUuid != null) {
+            if (parentUuid == null) {
+                throw new IllegalArgumentException("指定 replyToUuid 时必须同时指定 parentUuid");
+            }
+            if (!replyToUuid.equals(parentUuid)) {
+                Comment target = commentRepository.findById(replyToUuid).orElseThrow(
+                        () -> new IllegalArgumentException("回复对象不存在: " + replyToUuid)
+                );
+                if (!parentUuid.equals(target.getParentUuid())) {
+                    throw new IllegalArgumentException("回复对象不属于当前评论");
+                }
+            }
+        }
+
+
         long now = System.currentTimeMillis();
         Comment comment = new Comment();
         comment.setUuid(UuidUtil.generate());
         comment.setPublisherUuid(publisherUuid);
         comment.setContent(content);
         comment.setParentUuid(parentUuid);
+        comment.setReplyToUuid(replyToUuid);
         comment.setScore(score);
         comment.setCreateTime(now);
         comment.setUpdateTime(now);
@@ -69,7 +96,12 @@ public class CommentService {
 
     @Transactional(readOnly = true)
     public List<Comment> findReplies(String parentUuid) {
-        return commentRepository.findByParentUuid(parentUuid);
+        return commentRepository.findByParentUuidOrderByCreateTimeAsc(parentUuid);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Comment> findAllByUuids(Collection<String> uuids) {
+        return commentRepository.findAllById(uuids);
     }
 
     @Transactional
@@ -96,6 +128,9 @@ public class CommentService {
                 parent.setUpdateTime(System.currentTimeMillis());
                 commentRepository.save(parent);
             });
+        }
+        if (comment.getParentUuid() == null) {
+            commentRepository.deleteAll(commentRepository.findByParentUuidOrderByCreateTimeAsc(uuid));
         }
         commentRepository.delete(comment);
     }

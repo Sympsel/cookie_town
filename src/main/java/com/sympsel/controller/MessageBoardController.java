@@ -6,26 +6,28 @@ import com.sympsel.entitys.MessageBoard;
 import com.sympsel.entitys.enums.Permission;
 import com.sympsel.security.RequirePermission;
 import com.sympsel.security.UserContext;
+import com.sympsel.service.CommentService;
 import com.sympsel.service.MessageBoardService;
 import com.sympsel.service.UserService;
-import com.sympsel.utils.PageUtil;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/message-boards")
 public class MessageBoardController {
     private final MessageBoardService messageBoardService;
     private final UserService userService;
+    private final CommentService commentService;
 
-    public MessageBoardController(MessageBoardService messageBoardService, UserService userService) {
+    public MessageBoardController(MessageBoardService messageBoardService, UserService userService, CommentService commentService) {
         this.messageBoardService = messageBoardService;
         this.userService = userService;
+        this.commentService = commentService;
     }
 
     private MessageBoardResponse resp(MessageBoard messageBoard) {
@@ -38,20 +40,20 @@ public class MessageBoardController {
         return userService.findNamesByUuidIn(list.stream().map(Comment::getPublisherUuid).toList());
     }
 
-    @PostMapping
-    @RequirePermission({Permission.Common, Permission.Admin})
-    public ResponseEntity<MessageBoardResponse> create(@RequestBody MessageBoardRequest request) {
-        MessageBoard messageBoard = messageBoardService.create(UserContext.currentUuid(), request.content(), request.score());
-        return ResponseEntity.status(HttpStatus.CREATED).body(resp(messageBoard));
-    }
+//    @PostMapping
+//    @RequirePermission({Permission.Common, Permission.Admin})
+//    public ResponseEntity<MessageBoardResponse> create(@RequestBody MessageBoardRequest request) {
+//        MessageBoard messageBoard = messageBoardService.create(UserContext.currentUuid(), request.content());
+//        return ResponseEntity.status(HttpStatus.CREATED).body(resp(messageBoard));
+//    }
 
-    @GetMapping
-    public PageResponse<MessageBoardResponse> list(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(required = false) Integer size) {
-        Pageable pageable = PageUtil.desc(page, size, "createTime");
-        return PageResponse.from(messageBoardService.findAll(pageable), this::resp);
-    }
+//    @GetMapping
+//    public PageResponse<MessageBoardResponse> list(
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(required = false) Integer size) {
+//        Pageable pageable = PageUtil.desc(page, size, "createTime");
+//        return PageResponse.from(messageBoardService.findAll(pageable), this::resp);
+//    }
 
     @GetMapping("/{uuid}")
     public ResponseEntity<MessageBoardResponse> getByUuid(@PathVariable String uuid) {
@@ -63,7 +65,7 @@ public class MessageBoardController {
     @PutMapping("/{uuid}")
     @RequirePermission({Permission.Common, Permission.Admin})
     public ResponseEntity<MessageBoardResponse> update(@PathVariable String uuid, @RequestBody MessageBoardRequest request) {
-        MessageBoard messageBoard = messageBoardService.update(uuid, request.content(), request.score());
+        MessageBoard messageBoard = messageBoardService.update(uuid, request.content());
         return ResponseEntity.ok(resp(messageBoard));
     }
 
@@ -74,8 +76,46 @@ public class MessageBoardController {
         return ResponseEntity.noContent().build();
     }
 
+    /** 留言的回复：返回完整评论（含用户名、@对象），不再是裸 uuid */
     @GetMapping("/{uuid}/replies")
-    public List<String> replies(@PathVariable String uuid) {
-        return messageBoardService.findReplyCommentUuids(uuid);
+    public List<CommentResponse> replies(@PathVariable String uuid) {
+        List<String> ids = messageBoardService.findReplyCommentUuids(uuid);
+        if (ids.isEmpty()) return List.of();
+        Map<String, Comment> map = commentService.findAllByUuids(ids).stream()
+                .collect(Collectors.toMap(Comment::getUuid, Function.identity()));
+        List<Comment> ordered = ids.stream().map(map::get).filter(Objects::nonNull).toList();
+        return commentRespBatch(ordered);
+    }
+
+    /** 回复留言：创建一条 parentUuid=null 的根评论并挂到留言下 */
+    @PostMapping("/{uuid}/replies")
+    @RequirePermission({Permission.Common, Permission.Admin})
+    public ResponseEntity<CommentResponse> addReply(@PathVariable String uuid, @RequestBody CommentRequest request) {
+        if (messageBoardService.findByUuid(uuid).isEmpty()) {
+            throw new IllegalArgumentException("留言不存在: " + uuid);
+        }
+        Comment comment = commentService.create(UserContext.currentUuid(), request.content(), null, null, null);
+        messageBoardService.addReplyComment(uuid, comment.getUuid());
+        return ResponseEntity.status(HttpStatus.CREATED).body(commentRespBatch(List.of(comment)).getFirst());
+    }
+
+    private List<CommentResponse> commentRespBatch(List<Comment> list) {
+        Map<String, Comment> replyToMap = commentService.findAllByUuids(
+                list.stream().map(Comment::getReplyToUuid).filter(Objects::nonNull).toList()
+        ).stream().collect(Collectors.toMap(Comment::getUuid, Function.identity()));
+
+        Set<String> uuids = new HashSet<>();
+        list.forEach(c -> {
+            if (c.getPublisherUuid() != null) uuids.add(c.getPublisherUuid());
+            Comment rt = c.getReplyToUuid() == null ? null : replyToMap.get(c.getReplyToUuid());
+            if (rt != null && rt.getPublisherUuid() != null) uuids.add(rt.getPublisherUuid());
+        });
+        Map<String, String> names = userService.findNamesByUuidIn(List.copyOf(uuids));
+
+        return list.stream().map(c -> {
+            Comment rt = c.getReplyToUuid() == null ? null : replyToMap.get(c.getReplyToUuid());
+            String replyToName = rt == null ? null : names.get(rt.getPublisherUuid());
+            return CommentResponse.from(c, names.get(c.getPublisherUuid()), replyToName);
+        }).toList();
     }
 }
