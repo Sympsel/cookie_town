@@ -752,7 +752,7 @@
     }
 
     function landmarkChip(l) {
-        return tile(l.uuid, [['地标', l.name], ['类型', l.type], ['UUID', l.uuid]]);
+        return tile(l.uuid, [['地标', l.name], ['类型', typeLabel(l.type)], ['UUID', l.uuid]]);
     }
 
     function commentChip(c) {
@@ -907,14 +907,11 @@
 
     function landmarkDetailView(l) {
         const node = tile(l.uuid, [
-            ['地标', l.name], ['类型', l.type], ['状态', l.status],
+            ['地标', l.name], ['类型', typeLabel(l.type)], ['状态', statusLabel(l.status)],
             ['简介', l.description], ['评分', fmtScore(l.score)],
             ['提交者', fmtOwnerNoUuid(l.submitterName, l.submitterUuid)]
         ]);
         const actions = el('div', 'tile-actions');
-        const detail = el('a', 'tile-action tile-detail-link', '详情页');
-        detail.href = 'landmark.html?uuid=' + encodeURIComponent(l.uuid);
-        actions.appendChild(detail);
         actions.appendChild(wrapInDetails('编辑', buildForm({
             title: '编辑',
             endpoint: '/api/landmarks/' + l.uuid,
@@ -1213,9 +1210,12 @@
             // 头部：头像 + 用户名 + 内联标签 + 权限徽章 +「我」标识（取代独立标签面板）
             node.insertBefore(userHead(u), node.firstChild);
             const actions = el('div', 'tile-actions');
-            const detail = el('a', 'tile-action tile-detail-link', '详情页');
-            detail.href = 'user.html?uuid=' + encodeURIComponent(u.uuid);
-            actions.appendChild(detail);
+            if (!/(?:^|\/)user\.html$/.test(location.pathname)) {
+                // 详情页不再自指
+                const detail = el('a', 'tile-action tile-detail-link', '详情页');
+                detail.href = 'user.html?uuid=' + encodeURIComponent(u.uuid);
+                actions.appendChild(detail);
+            }
             // 账户信息（用户名/简介/重置密码）：仅本人或开发者可操作，管理员角色不再自动放行
             if (canManageAccount(u.uuid)) {
                 actions.appendChild(wrapInDetails('改资料', buildForm({

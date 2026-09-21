@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/landmarks")
@@ -166,7 +167,12 @@ public class LandmarkController {
 
     @GetMapping("/{uuid}/comments")
     public List<CommentResponse> comments(@PathVariable String uuid) {
-        return landmarkService.findComments(uuid).stream().map(CommentResponse::from).toList();
+        List<Comment> list = landmarkService.findComments(uuid);
+        Map<String, String> names = userService.findNamesByUuidIn(
+                list.stream().map(Comment::getPublisherUuid).filter(Objects::nonNull).toList());
+        return list.stream()
+                .map(c -> CommentResponse.from(c, names.get(c.getPublisherUuid()), null))
+                .toList();
     }
 
     /**

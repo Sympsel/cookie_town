@@ -10,15 +10,15 @@
 <header class="site-header">
     <h1 class="site-title">曲奇小镇</h1>
     <nav class="auth-nav">
-        <!-- 登录状态区：后续由 JS 调用 GET /api/auth/me 填充 -->
-        <span id="session-status" class="session-status">未登录</span>
+        <!-- 登录状态区 -->
+        <span id="session-status" class="session-status">（未登录）</span>
         <a href="login.html">登录</a>
         <a href="register.html">注册</a>
     </nav>
 </header>
 
 <main>
-    <!-- 主镇轮播图：无主镇或无图片时整栏隐藏（由 JS 控制） -->
+    <!-- 主镇轮播图：无主镇或无图片时整栏隐藏 -->
     <section class="main-town-carousel" id="main-town-carousel" hidden>
         <div class="carousel-viewport" id="carousel-viewport"></div>
         <button type="button" class="carousel-btn carousel-prev" id="carousel-prev" aria-label="上一张">‹</button>
